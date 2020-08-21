@@ -1,0 +1,10 @@
+//
+// Created by Matthew.Sirman on 20/08/2020.
+//
+
+#ifndef CONTRACTS_SITE_CLIENT_SAGEDATABASEMANAGER_INC
+#define CONTRACTS_SITE_CLIENT_SAGEDATABASEMANAGER_INC
+
+#include "database/SageDatabaseManager.h"
+
+#endif //CONTRACTS_SITE_CLIENT_SAGEDATABASEMANAGER_INC
