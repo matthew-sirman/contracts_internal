@@ -18,6 +18,8 @@ SQLSession::SQLSession() {
 }
 
 SQLSession::~SQLSession() {
+    // Free the internal statement handle
+    SQLFreeHandle(SQL_HANDLE_STMT, sqlStatementHandle);
     // Close the connection to the database
     closeConnection();
     // Free the environment and database connection handles
@@ -57,24 +59,34 @@ void SQLSession::connect(const std::string &dsn, const std::string &userID, cons
 }
 
 void SQLSession::execute(const std::string &sql) {
-    // Set up the statement handle ready for use if necessary
+    // Set up the internal statement handle ready for use if necessary
     setupStatementHandle();
 
     // Execute the SQL query passed in
     handleInternalError(SQLExecDirect(sqlStatementHandle, (SQLCHAR *) sql.c_str(), SQL_NTS), STATEMENT_HANDLE);
 }
 
-sql::QueryResult SQLSession::executeQuery(const std::string &sql) {
-    // Execute the query
-    execute(sql);
+sql::QueryResult &SQLSession::executeQuery(const std::string &sql) {
+    SQLHANDLE queryStatementHandle;
 
-    // Construct a QueryResult object so the caller may access the returned data
-    return QueryResult(sqlStatementHandle);
+    // Create a handle for this query - this allows for "query parallelism" i.e. having multiple queries which do
+    // not necessarily require to be executed in order.
+    handleInternalError(SQLAllocHandle(SQL_HANDLE_STMT, sqlConnHandle, &queryStatementHandle), CONNECTION_HANDLE);
+
+    // Execute the query with
+    handleInternalError(SQLExecDirect(queryStatementHandle, (SQLCHAR *) sql.c_str(), SQL_NTS), STATEMENT_HANDLE);
+
+    // Construct a QueryResult object on the heap
+    QueryResult *result = new QueryResult(queryStatementHandle);
+
+    // Return a reference to the result
+    return *result;
 }
 
 sql::Table SQLSession::table(const std::string &tableName) {
+    sql::internal::QueryBuilder *builder = new sql::internal::QueryBuilder(this);
     // Return a table object based on the passed in table name
-    return Table(tableName, sql::internal::QueryBuilder(this));
+    return Table(tableName, *builder);
 }
 
 void SQLSession::closeConnection() {

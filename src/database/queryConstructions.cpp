@@ -16,7 +16,7 @@ Table &Table::join(const std::string &tableName, const std::string &joinFrom, co
     return *this;
 }
 
-Table::Table(const std::string &tableName, QueryBuilder &&construction)
+Table::Table(const std::string &tableName, QueryBuilder &construction)
         : builder(construction) {
     // Set the root table. This is the first piece of information to be set
     construction.setRootTable(tableName);
@@ -28,9 +28,9 @@ TableSelection &TableSelection::limit(size_t n) {
     return *this;
 }
 
-QueryResult TableSelection::execute() {
+QueryResult &TableSelection::execute() {
     // Get the results from the builder
-    QueryResult res = builder.execute();
+    QueryResult &res = builder.execute();
     // Delete the builder; we are finished with it
     delete &builder;
     // Return the cached results
@@ -64,7 +64,7 @@ void QueryBuilder::setLimit(size_t lim) {
     limit = lim;
 }
 
-QueryResult QueryBuilder::execute() {
+QueryResult &QueryBuilder::execute() {
     // Executes the actual query on the session and returns the results
     return sess->executeQuery(construct());
 }

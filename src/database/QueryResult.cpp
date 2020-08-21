@@ -54,6 +54,15 @@ QueryResult::QueryResult(SQLHANDLE sqlStatementHandle)
 
 }
 
+QueryResult::QueryResult(const QueryResult &queryResult)
+        : sqlStatementHandle(queryResult.sqlStatementHandle), columns(this), row(this) {
+
+}
+
+QueryResult::~QueryResult() {
+    SQLFreeHandle(SQL_HANDLE_STMT, sqlStatementHandle);
+}
+
 void QueryResult::fetchNextRow() {
     // Fetch the next row from the internal SQL statement
     SQLFetch(sqlStatementHandle);

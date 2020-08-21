@@ -30,7 +30,7 @@ namespace sql {
         void execute(const std::string &sql);
 
         // Execute an SQL query
-        sql::QueryResult executeQuery(const std::string &sql);
+        sql::QueryResult &executeQuery(const std::string &sql);
 
         // Gets a queryable table object for the C++ style query builder interface
         sql::Table table(const std::string &tableName);

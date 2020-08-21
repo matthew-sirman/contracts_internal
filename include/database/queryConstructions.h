@@ -45,7 +45,7 @@ namespace sql {
 
     private:
         // Private constructor callable from the SQLSession object
-        Table(const std::string &tableName, internal::QueryBuilder &&construction);
+        Table(const std::string &tableName, internal::QueryBuilder &construction);
 
         // The internal builder object which tracks the details to construct a final SQL string upon request
         internal::QueryBuilder &builder;
@@ -79,7 +79,7 @@ namespace sql {
         TableSelection &limit(size_t n);
 
         // Executes the constructed query and returns the row results in the form of a QueryResult object
-        QueryResult execute();
+        QueryResult &execute();
 
     private:
         // Private hidden constructor
@@ -125,7 +125,7 @@ namespace sql {
             void setLimit(size_t lim);
 
             // Executes the constructed query and returns the results
-            QueryResult execute();
+            QueryResult &execute();
 
         private:
             // JoinSpec

@@ -12,6 +12,8 @@
 
 #include <string>
 
+#include <iostream>
+
 #define MAX_QUERY_STRING_LENGTH 1024
 
 // Forward declare the database manager in the global namespace
@@ -201,6 +203,11 @@ namespace sql {
         friend struct ColumnSetItemProxy;
 
     public:
+        // Copy constructor
+        QueryResult(const QueryResult &queryResult);
+
+        ~QueryResult();
+
         // Fetches the next row from the dataset. The getter methods for row items will retrieve
         // items from the next row once called
         void fetchNextRow();
