@@ -2,9 +2,11 @@
 // Created by Matthew.Sirman on 20/08/2020.
 //
 
-#include "../../include/database/SageDatabaseManager.h"
+#include "../../include/database/SQLSession.h"
 
-SageDatabaseManager::SageDatabaseManager() {
+using namespace sql;
+
+SQLSession::SQLSession() {
     // Create the environment handle
     if (SQLAllocHandle(SQL_HANDLE_ENV, SQL_NULL_HANDLE, &sqlEnvHandle) != SQL_SUCCESS) {
         // If there is an error, throw an exception
@@ -15,7 +17,7 @@ SageDatabaseManager::SageDatabaseManager() {
                         ENVIRONMENT_HANDLE);
 }
 
-SageDatabaseManager::~SageDatabaseManager() {
+SQLSession::~SQLSession() {
     // Close the connection to the database
     closeConnection();
     // Free the environment and database connection handles
@@ -23,7 +25,7 @@ SageDatabaseManager::~SageDatabaseManager() {
     SQLFreeHandle(SQL_HANDLE_ENV, sqlEnvHandle);
 }
 
-void SageDatabaseManager::connect(const std::string &dsn, const std::string &userID, const std::string &password) {
+void SQLSession::connect(const std::string &dsn, const std::string &userID, const std::string &password) {
     // Create the connection handle
     handleInternalError(SQLAllocHandle(SQL_HANDLE_DBC, sqlEnvHandle, &sqlConnHandle), ENVIRONMENT_HANDLE);
 
@@ -40,20 +42,21 @@ void SageDatabaseManager::connect(const std::string &dsn, const std::string &use
                              SQL_NTS, nullptr, SQL_NTS, nullptr, SQL_DRIVER_NOPROMPT)) {
         case SQL_SUCCESS:
         case SQL_SUCCESS_WITH_INFO:
+            // Flag that we are connected
             connected = true;
             break;
         case SQL_INVALID_HANDLE:
         case SQL_ERROR:
+            // Flag that we aren't connected then throw an exception
             connected = false;
             throw getError(CONNECTION_HANDLE);
         default:
+            // Throw an unknown exception - this code wasn't picked up from the return value
             throw UnknownSQLException();
     }
-
-
 }
 
-void SageDatabaseManager::execute(const std::string &sql) {
+void SQLSession::execute(const std::string &sql) {
     // Set up the statement handle ready for use if necessary
     setupStatementHandle();
 
@@ -61,21 +64,20 @@ void SageDatabaseManager::execute(const std::string &sql) {
     handleInternalError(SQLExecDirect(sqlStatementHandle, (SQLCHAR *) sql.c_str(), SQL_NTS), STATEMENT_HANDLE);
 }
 
-sql::QueryResult SageDatabaseManager::executeQuery(const std::string &sql) {
+sql::QueryResult SQLSession::executeQuery(const std::string &sql) {
     // Execute the query
     execute(sql);
 
     // Construct a QueryResult object so the caller may access the returned data
-    return sql::QueryResult(sqlStatementHandle);
+    return QueryResult(sqlStatementHandle);
 }
 
-sql::Table SageDatabaseManager::table(const std::string &tableName) {
-    sql::internal::SelectionConstruction *construction = new sql::internal::SelectionConstruction(this);
-
-    return sql::Table(tableName, *construction);
+sql::Table SQLSession::table(const std::string &tableName) {
+    // Return a table object based on the passed in table name
+    return Table(tableName, sql::internal::QueryBuilder(this));
 }
 
-void SageDatabaseManager::closeConnection() {
+void SQLSession::closeConnection() {
     // If the object is connected to the database
     if (connected) {
         // Disconnect
@@ -85,7 +87,7 @@ void SageDatabaseManager::closeConnection() {
     }
 }
 
-void SageDatabaseManager::setupStatementHandle() {
+void SQLSession::setupStatementHandle() {
     // If we already have a statement handle, there is nothing to do
     if (sqlStatementHandle) {
         return;
@@ -94,7 +96,7 @@ void SageDatabaseManager::setupStatementHandle() {
     handleInternalError(SQLAllocHandle(SQL_HANDLE_STMT, sqlConnHandle, &sqlStatementHandle), CONNECTION_HANDLE);
 }
 
-void SageDatabaseManager::handleInternalError(SQLRETURN code, HandleType handleType) const {
+void SQLSession::handleInternalError(SQLRETURN code, HandleType handleType) const {
     // Switch the error code
     switch (code) {
         case SQL_SUCCESS:
@@ -113,7 +115,7 @@ void SageDatabaseManager::handleInternalError(SQLRETURN code, HandleType handleT
     }
 }
 
-SQLException SageDatabaseManager::getError(SageDatabaseManager::HandleType handleType) const {
+SQLException SQLSession::getError(SQLSession::HandleType handleType) const {
     // Declare buffers for the state and error message returned
     SQLCHAR sqlState[256], errorMessage[256];
     // Declare the native error parameter (unused)

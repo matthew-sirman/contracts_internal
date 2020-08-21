@@ -12,30 +12,41 @@ QueryResultRowIterator::QueryResultRowIterator(size_t iterPosition, QueryResult 
 }
 
 Row QueryResultRowIterator::operator*() const {
+    // We always simply return the query's current row - the object itself will determine the individual
+    // column values to return
     return resultObject->row;
 }
 
 QueryResultRowIterator &QueryResultRowIterator::operator++() {
+    // Increment the internal iterator
     iterPosition++;
+    // Fetch the next row from the query
     resultObject->fetchNextRow();
+    // Return the "new" value of the iterator (i.e. after incrementing)
     return *this;
 }
 
 QueryResultRowIterator QueryResultRowIterator::operator++(int) {
+    // Cache the old value of the iterator before incrementing
     QueryResultRowIterator ret(iterPosition, resultObject);
 
+    // Increment the internal iterator
     iterPosition++;
+    // Fetch the next row from the query
     resultObject->fetchNextRow();
 
+    // Return the cached "old" value of the iterator (i.e. before incrementing)
     return ret;
 }
 
 bool QueryResultRowIterator::operator==(const QueryResultRowIterator &other) const {
-    return iterPosition == other.iterPosition;
+    // Return equal if and only if the iterators are in the same position and pertain to the same query
+    return iterPosition == other.iterPosition && resultObject == other.resultObject;
 }
 
 bool QueryResultRowIterator::operator!=(const QueryResultRowIterator &other) const {
-    return iterPosition != other.iterPosition;
+    // Return not equal if and only if the iterators are in different positions or pertain to different queries
+    return iterPosition != other.iterPosition || resultObject != other.resultObject;
 }
 
 QueryResult::QueryResult(SQLHANDLE sqlStatementHandle)
@@ -44,9 +55,10 @@ QueryResult::QueryResult(SQLHANDLE sqlStatementHandle)
 }
 
 void QueryResult::fetchNextRow() {
-    // Fetches the next row from the internal SQL statement
+    // Fetch the next row from the internal SQL statement
     SQLFetch(sqlStatementHandle);
 
+    // Increment the current row index
     currentRowIndex++;
 }
 
@@ -190,10 +202,14 @@ size_t QueryResult::currentRow() const {
 }
 
 QueryResultRowIterator QueryResult::begin() {
+    // Fetch the first row - the rows are incremented whenever the increment operator is called on the iterator,
+    // but it will not be called for the first row, hence we manually increment it here as begin is called.
     fetchNextRow();
+    // Return an iterator in position 0
     return QueryResultRowIterator(0, this);
 }
 
 QueryResultRowIterator QueryResult::end() {
+    // Return an iterator with the position of rowCount, meaning it will be the "final" row
     return QueryResultRowIterator(rowCount(), this);
 }

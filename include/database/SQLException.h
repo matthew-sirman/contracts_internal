@@ -9,23 +9,37 @@
 #include <string>
 #include <sstream>
 
-class SQLException : public std::exception {
-public:
-    SQLException(const std::string &message);
+namespace sql {
 
-    SQLException(const std::string &sqlState, const std::string &sqlError);
+    // SQLException
+    // Represents an exception in the SQL system
+    class SQLException : public std::exception {
+    public:
+        // Constructor with an arbitrary message
+        SQLException(const std::string &message);
 
-    const std::string state() const;
+        // Constructor with a specific state and error message from the SQL internal error scheme
+        SQLException(const std::string &sqlState, const std::string &sqlError);
 
-    const std::string error() const;
+        // Getter for the internal state message (independently)
+        const std::string state() const;
 
-private:
-    std::string sqlState, sqlError;
-};
+        // Getter for the internal error message (independently)
+        const std::string error() const;
 
-class UnknownSQLException : public std::exception {
-public:
-    UnknownSQLException();
-};
+    private:
+        // Internal state and error messages
+        std::string sqlState, sqlError;
+    };
+
+    // UnknownSQLException
+    // Represents an unknown exception in the SQL system, i.e. one which did not return
+    // a recognised error code
+    class UnknownSQLException : public std::exception {
+    public:
+        UnknownSQLException();
+    };
+
+}
 
 #endif //CONTRACTS_SITE_CLIENT_SQLEXCEPTION_H

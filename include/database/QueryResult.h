@@ -15,11 +15,11 @@
 #define MAX_QUERY_STRING_LENGTH 1024
 
 // Forward declare the database manager in the global namespace
-class SageDatabaseManager;
 
 namespace sql {
 
     // Forward declarations
+    class SQLSession;
 
     class QueryResult;
 
@@ -30,25 +30,36 @@ namespace sql {
     template<typename T>
     struct Column;
 
+    // Iterator object for range based for loops
     struct QueryResultRowIterator {
+        // Friend the overarching query result class
         friend class QueryResult;
 
     public:
+        // Dereference operator - returns a row at each point representing
+        // the current row in the range
         Row operator*() const;
 
+        // Pre increment operator
         QueryResultRowIterator &operator++();
 
+        // Post increment operator
         QueryResultRowIterator operator++(int);
 
+        // Equality operator
         bool operator==(const QueryResultRowIterator &other) const;
 
+        // Inequality operator
         bool operator!=(const QueryResultRowIterator &other) const;
 
     private:
+        // Private hidden constructor callable from the QueryResult object when setting up the iterator range
         QueryResultRowIterator(size_t iterPosition, QueryResult *resultObject);
 
+        // The current position of this iterator. Goes from 0 (first element) to the number of returned records
         size_t iterPosition;
 
+        // The calling result object to return the row from
         QueryResult *resultObject;
     };
 
@@ -135,9 +146,6 @@ namespace sql {
         // Template cast method. Calls the private get method in the QueryResult object assigned
         template<typename T>
         inline operator T() const {
-            /*if (resultObject->currentRow() != row) {
-                // TODO: Handle error - an item should only be valid for a single row
-            }*/
             return resultObject->get<T>(index);
         }
 
@@ -181,10 +189,10 @@ namespace sql {
     };
 
     // QueryResult class
-    // Represents the results from a query made in the SageDatabaseManager.
+    // Represents the results from a query made in the SQL.
     class QueryResult {
         // Friend the manager class so it can call the private constructor
-        friend class ::SageDatabaseManager;
+        friend class SQLSession;
 
         // Friend the row item proxy so it can call the private get method
         friend struct RowItemProxy;
@@ -208,8 +216,10 @@ namespace sql {
         // Gets the current row index
         size_t currentRow() const;
 
+        // Begin iterator for range based for loops
         QueryResultRowIterator begin();
 
+        // End iterator for range based for loops
         QueryResultRowIterator end();
 
         // Gets the current row. This can be indexed to retrieve an individual value
@@ -226,6 +236,7 @@ namespace sql {
         // A handle for the statement which contains the internal row results
         SQLHANDLE sqlStatementHandle = nullptr;
 
+        // Current row index in the query - incremented each time fetchNextRow is called
         size_t currentRowIndex = 0;
 
         // Recursive case for the implementation of the getRow method
