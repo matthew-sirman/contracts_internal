@@ -11,34 +11,30 @@ using namespace sql::internal;
 Table &Table::join(const std::string &tableName, const std::string &joinFrom, const std::string &joinTo,
                    Table::JoinType joinType) {
     // Add the joined table to the builder
-    builder.addJoinedTable(tableName, joinFrom, joinTo, joinType);
+    builder->addJoinedTable(tableName, joinFrom, joinTo, joinType);
     // Return this object - this allows for calling multiple functions on the same line
     return *this;
 }
 
-Table::Table(const std::string &tableName, QueryBuilder &construction)
-        : builder(construction) {
+Table::Table(const std::string &tableName, std::unique_ptr<QueryBuilder> construction)
+        : builder(std::move(construction)) {
     // Set the root table. This is the first piece of information to be set
-    construction.setRootTable(tableName);
+    builder->setRootTable(tableName);
 }
 
 TableSelection &TableSelection::limit(size_t n) {
-    builder.setLimit(n);
+    builder->setLimit(n);
     // Return this object - this allows for calling multiple functions on the same line
     return *this;
 }
 
-QueryResult &TableSelection::execute() {
-    // Get the results from the builder
-    QueryResult &res = builder.execute();
-    // Delete the builder; we are finished with it
-    delete &builder;
-    // Return the cached results
-    return res;
+QueryResult TableSelection::execute() {
+    // Return builder's executed query result
+    return builder->execute();
 }
 
-TableSelection::TableSelection(QueryBuilder &construction)
-     : builder(construction) {
+TableSelection::TableSelection(std::unique_ptr<QueryBuilder> construction)
+     : builder(std::move(construction)) {
 
 }
 
@@ -64,7 +60,7 @@ void QueryBuilder::setLimit(size_t lim) {
     limit = lim;
 }
 
-QueryResult &QueryBuilder::execute() {
+QueryResult QueryBuilder::execute() {
     // Executes the actual query on the session and returns the results
     return sess->executeQuery(construct());
 }

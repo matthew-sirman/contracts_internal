@@ -30,7 +30,7 @@ namespace sql {
         void execute(const std::string &sql);
 
         // Execute an SQL query
-        sql::QueryResult &executeQuery(const std::string &sql);
+        sql::QueryResult executeQuery(const std::string &sql);
 
         // Gets a queryable table object for the C++ style query builder interface
         sql::Table table(const std::string &tableName);
@@ -39,15 +39,10 @@ namespace sql {
         void closeConnection();
 
     private:
-        // Type of handle for use in error checking (to minimise code duplication)
-        enum HandleType {
-            STATEMENT_HANDLE,
-            ENVIRONMENT_HANDLE,
-            CONNECTION_HANDLE
-        };
-
         // Handles for the internal connection and environment
-        SQLHANDLE sqlConnHandle = nullptr, sqlEnvHandle = nullptr, sqlStatementHandle = nullptr;
+        SQLConnectionHandle sqlConnHandle;
+        SQLEnvironmentHandle sqlEnvHandle;
+        SQLStatementHandle sqlStatementHandle;
 
         // Flag indicating whether the manager is currently connected to the database
         bool connected = false;
@@ -56,10 +51,8 @@ namespace sql {
         void setupStatementHandle();
 
         // Handles an internal error by throwing an exception where necessary
-        void handleInternalError(SQLRETURN code, HandleType handleType) const;
-
-        // Gets an error message from the underlying SQL handles
-        SQLException getError(HandleType handleType) const;
+        template<HandleType handleType>
+        void handleInternalError(SQLRETURN code, const SQLSafeHandle<handleType> &handle) const;
     };
 
 }

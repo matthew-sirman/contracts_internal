@@ -45,10 +45,10 @@ namespace sql {
 
     private:
         // Private constructor callable from the SQLSession object
-        Table(const std::string &tableName, internal::QueryBuilder &construction);
+        Table(const std::string &tableName, std::unique_ptr<internal::QueryBuilder> construction);
 
         // The internal builder object which tracks the details to construct a final SQL string upon request
-        internal::QueryBuilder &builder;
+        std::unique_ptr<internal::QueryBuilder> builder;
     };
 
     // TableSelection
@@ -79,14 +79,14 @@ namespace sql {
         TableSelection &limit(size_t n);
 
         // Executes the constructed query and returns the row results in the form of a QueryResult object
-        QueryResult &execute();
+        QueryResult execute();
 
     private:
         // Private hidden constructor
-        TableSelection(internal::QueryBuilder &construction);
+        TableSelection(std::unique_ptr<internal::QueryBuilder> builder);
 
         // The internal builder builder object
-        internal::QueryBuilder &builder;
+        std::unique_ptr<internal::QueryBuilder> builder;
     };
 
     namespace internal {
@@ -125,7 +125,7 @@ namespace sql {
             void setLimit(size_t lim);
 
             // Executes the constructed query and returns the results
-            QueryResult &execute();
+            QueryResult execute();
 
         private:
             // JoinSpec
@@ -195,15 +195,15 @@ namespace sql {
     template<typename... T>
     TableSelection Table::select(T &... selections) {
         // Add the selections to the builder
-        builder.addSelections(selections...);
+        builder->addSelections(selections...);
         // Return a newly constructed table selection object
-        return TableSelection(builder);
+        return TableSelection(std::move(builder));
     }
 
     template<typename... T>
     TableSelection &TableSelection::where(T &... conditions) {
         // Add the where conditions to the builder
-        builder.addWhereConditions(conditions...);
+        builder->addWhereConditions(conditions...);
         // Return this object - this allows for calling multiple functions on the same line
         return *this;
     }
@@ -211,7 +211,7 @@ namespace sql {
     template<typename... T>
     TableSelection &TableSelection::groupBy(T &... groupConditions) {
         // Add the group by conditions to the builder
-        builder.addGroupByConditions(groupConditions...);
+        builder->addGroupByConditions(groupConditions...);
         // Return this object - this allows for calling multiple functions on the same line
         return *this;
     }
@@ -219,7 +219,7 @@ namespace sql {
     template<typename... T>
     TableSelection &TableSelection::orderBy(TableSelection::OrderDirection direction, T &... orderConditions) {
         // Add the order by conditions to the builder
-        builder.addOrderByConditions(direction, orderConditions...);
+        builder->addOrderByConditions(direction, orderConditions...);
         // Return this object - this allows for calling multiple functions on the same line
         return *this;
     }

@@ -5,18 +5,17 @@
 #ifndef CONTRACTS_SITE_CLIENT_QUERYRESULT_H
 #define CONTRACTS_SITE_CLIENT_QUERYRESULT_H
 
-#include <Windows.h>
-#include <sqlext.h>
-#include <sql.h>
-#include <sqltypes.h>
+//#include <Windows.h>
+//#include <sqlext.h>
+//#include <sql.h>
+//#include <sqltypes.h>
 
 #include <string>
+#include <memory>
 
-#include <iostream>
+#include "SQLSafeHandle.h"
 
 #define MAX_QUERY_STRING_LENGTH 1024
-
-// Forward declare the database manager in the global namespace
 
 namespace sql {
 
@@ -56,13 +55,13 @@ namespace sql {
 
     private:
         // Private hidden constructor callable from the QueryResult object when setting up the iterator range
-        QueryResultRowIterator(size_t iterPosition, QueryResult *resultObject);
+        QueryResultRowIterator(size_t iterPosition, QueryResult &resultObject);
 
         // The current position of this iterator. Goes from 0 (first element) to the number of returned records
         size_t iterPosition;
 
         // The calling result object to return the row from
-        QueryResult *resultObject;
+        QueryResult &resultObject;
     };
 
     // ColumnSetItemProxy
@@ -82,16 +81,16 @@ namespace sql {
         // index of this column
         template<typename T>
         inline T getItem() const {
-            return resultObject->get<T>(columnIndex);
+            return resultObject.get<T>(columnIndex);
         }
 
     private:
         // Private constructor callable by the ColumnSet class
-        inline ColumnSetItemProxy(const QueryResult *resultObject, size_t index) : resultObject(resultObject),
+        inline ColumnSetItemProxy(const QueryResult &resultObject, size_t index) : resultObject(resultObject),
                                                                                    columnIndex(index) {}
 
-        // Pointer to the query result object for the get method
-        const QueryResult *resultObject;
+        // Reference to the query result object for the get method
+        const QueryResult &resultObject;
         // The index of the column this proxy is associated with
         size_t columnIndex;
     };
@@ -120,7 +119,7 @@ namespace sql {
     };
 
     // ColumnSet
-    // Defines an a set of columns which can be indexed to return a column proxy which can be converted (implictly) to
+    // Defines an a set of columns which can be indexed to return a column proxy which can be converted (implicitly) to
     // a Column object
     class ColumnSet {
         // Friend the QueryResult so it can call the private constructor
@@ -135,10 +134,10 @@ namespace sql {
 
     private:
         // Private constructor which specifies the query result object
-        inline ColumnSet(const QueryResult *resultObject) : resultObject(resultObject) {}
+        inline ColumnSet(const QueryResult &resultObject) : resultObject(resultObject) {}
 
-        // A pointer to the query result object for creating the column objects
-        const QueryResult *resultObject;
+        // A reference to the query result object for creating the column objects
+        const QueryResult &resultObject;
     };
 
     struct RowItemProxy {
@@ -148,23 +147,23 @@ namespace sql {
         // Template cast method. Calls the private get method in the QueryResult object assigned
         template<typename T>
         inline operator T() const {
-            return resultObject->get<T>(index);
+            return resultObject.get<T>(index);
         }
 
         template<typename T>
         inline T get() const {
-            return resultObject->get<T>(index);
+            return resultObject.get<T>(index);
         }
 
     private:
         // Constructor taking a QueryResult object and the index of the column of interest
-        inline RowItemProxy(const QueryResult *queryResult, size_t i)
+        inline RowItemProxy(const QueryResult &queryResult, size_t i)
                 : resultObject(queryResult), index(i) {
 
         }
 
         // Private QueryResult object this proxy is associated with
-        const QueryResult *resultObject;
+        const QueryResult &resultObject;
         // The index of the column of the query result this proxy is associated with
         size_t index;
     };
@@ -184,16 +183,16 @@ namespace sql {
 
     private:
         // Private constructor which specifies the result object
-        inline Row(const QueryResult *resultObject) : resultObject(resultObject) {}
+        inline Row(const QueryResult &resultObject) : resultObject(resultObject) {}
 
         // The result object this row is associated with
-        const QueryResult *resultObject;
+        const QueryResult &resultObject;
     };
 
     // QueryResult class
     // Represents the results from a query made in the SQL.
     class QueryResult {
-        // Friend the manager class so it can call the private constructor
+        // Friend the session class so it can call the private constructor
         friend class SQLSession;
 
         // Friend the row item proxy so it can call the private get method
@@ -203,10 +202,10 @@ namespace sql {
         friend struct ColumnSetItemProxy;
 
     public:
-        // Copy constructor
+        /*// Copy constructor
         QueryResult(const QueryResult &queryResult);
 
-        ~QueryResult();
+        ~QueryResult();*/
 
         // Fetches the next row from the dataset. The getter methods for row items will retrieve
         // items from the next row once called
@@ -235,13 +234,13 @@ namespace sql {
         // Gets the set of columns. This can be indexed to retrieve an individual value
         const ColumnSet columns;
 
-    private:
-        // Private constructor. This is hidden so only the database manager can create a QueryResult, otherwise
-        // it would be meaningless
-        QueryResult(SQLHANDLE sqlStatementHandle);
+    protected:
+        // Protected constructor. This is hidden so only the session can create a QueryResult
+        QueryResult(SQLSafeHandle<STATEMENT_HANDLE> &&sqlStatementHandle);
 
+    private:
         // A handle for the statement which contains the internal row results
-        SQLHANDLE sqlStatementHandle = nullptr;
+        SQLSafeHandle<STATEMENT_HANDLE> sqlStatementHandle;
 
         // Current row index in the query - incremented each time fetchNextRow is called
         size_t currentRowIndex = 0;

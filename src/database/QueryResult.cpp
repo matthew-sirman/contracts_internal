@@ -6,7 +6,7 @@
 
 using namespace sql;
 
-QueryResultRowIterator::QueryResultRowIterator(size_t iterPosition, QueryResult *resultObject)
+QueryResultRowIterator::QueryResultRowIterator(size_t iterPosition, QueryResult &resultObject)
         : iterPosition(iterPosition), resultObject(resultObject) {
 
 }
@@ -14,14 +14,14 @@ QueryResultRowIterator::QueryResultRowIterator(size_t iterPosition, QueryResult 
 Row QueryResultRowIterator::operator*() const {
     // We always simply return the query's current row - the object itself will determine the individual
     // column values to return
-    return resultObject->row;
+    return resultObject.row;
 }
 
 QueryResultRowIterator &QueryResultRowIterator::operator++() {
     // Increment the internal iterator
     iterPosition++;
     // Fetch the next row from the query
-    resultObject->fetchNextRow();
+    resultObject.fetchNextRow();
     // Return the "new" value of the iterator (i.e. after incrementing)
     return *this;
 }
@@ -33,7 +33,7 @@ QueryResultRowIterator QueryResultRowIterator::operator++(int) {
     // Increment the internal iterator
     iterPosition++;
     // Fetch the next row from the query
-    resultObject->fetchNextRow();
+    resultObject.fetchNextRow();
 
     // Return the cached "old" value of the iterator (i.e. before incrementing)
     return ret;
@@ -41,31 +41,22 @@ QueryResultRowIterator QueryResultRowIterator::operator++(int) {
 
 bool QueryResultRowIterator::operator==(const QueryResultRowIterator &other) const {
     // Return equal if and only if the iterators are in the same position and pertain to the same query
-    return iterPosition == other.iterPosition && resultObject == other.resultObject;
+    return iterPosition == other.iterPosition && &resultObject == &other.resultObject;
 }
 
 bool QueryResultRowIterator::operator!=(const QueryResultRowIterator &other) const {
     // Return not equal if and only if the iterators are in different positions or pertain to different queries
-    return iterPosition != other.iterPosition || resultObject != other.resultObject;
+    return iterPosition != other.iterPosition || &resultObject != &other.resultObject;
 }
 
-QueryResult::QueryResult(SQLHANDLE sqlStatementHandle)
-        : sqlStatementHandle(sqlStatementHandle), columns(this), row(this) {
+QueryResult::QueryResult(SQLSafeHandle<STATEMENT_HANDLE> &&sqlStatementHandle)
+        : sqlStatementHandle(std::move(sqlStatementHandle)), columns(*this), row(*this) {
 
-}
-
-QueryResult::QueryResult(const QueryResult &queryResult)
-        : sqlStatementHandle(queryResult.sqlStatementHandle), columns(this), row(this) {
-
-}
-
-QueryResult::~QueryResult() {
-    SQLFreeHandle(SQL_HANDLE_STMT, sqlStatementHandle);
 }
 
 void QueryResult::fetchNextRow() {
     // Fetch the next row from the internal SQL statement
-    SQLFetch(sqlStatementHandle);
+    SQLFetch(sqlStatementHandle.get());
 
     // Increment the current row index
     currentRowIndex++;
@@ -80,7 +71,7 @@ template<>
 char QueryResult::get<char>(size_t index) const {
     SQLSCHAR result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLSCHAR), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLSCHAR), nullptr);
 
     return result;
 }
@@ -89,7 +80,7 @@ template<>
 unsigned char QueryResult::get<unsigned char>(size_t index) const {
     SQLCHAR result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), nullptr);
 
     return result;
 }
@@ -98,7 +89,7 @@ template<>
 short QueryResult::get<short>(size_t index) const {
     SQLSMALLINT result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLSMALLINT), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLSMALLINT), nullptr);
 
     return result;
 }
@@ -107,7 +98,7 @@ template<>
 unsigned short QueryResult::get<unsigned short>(size_t index) const {
     SQLUSMALLINT result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLUSMALLINT), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLUSMALLINT), nullptr);
 
     return result;
 }
@@ -116,7 +107,7 @@ template<>
 int QueryResult::get<int>(size_t index) const {
     SQLINTEGER result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), nullptr);
 
     return result;
 }
@@ -125,7 +116,7 @@ template<>
 unsigned int QueryResult::get<unsigned int>(size_t index) const {
     SQLUINTEGER result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUINTEGER), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUINTEGER), nullptr);
 
     return result;
 }
@@ -134,7 +125,7 @@ template<>
 long long QueryResult::get<long long>(size_t index) const {
     SQLBIGINT result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), nullptr);
 
     return result;
 }
@@ -143,7 +134,7 @@ template<>
 unsigned long long QueryResult::get<unsigned long long>(size_t index) const {
     SQLUBIGINT result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUBIGINT), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUBIGINT), nullptr);
 
     return result;
 }
@@ -152,7 +143,7 @@ template<>
 float QueryResult::get<float>(size_t index) const {
     SQLREAL result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_REAL, &result, (SQLLEN) sizeof(SQLREAL), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_REAL, &result, (SQLLEN) sizeof(SQLREAL), nullptr);
 
     return result;
 }
@@ -161,7 +152,7 @@ template<>
 double QueryResult::get<double>(size_t index) const {
     SQLDOUBLE result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_DOUBLE, &result, (SQLLEN) sizeof(SQLDOUBLE), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_DOUBLE, &result, (SQLLEN) sizeof(SQLDOUBLE), nullptr);
 
     return result;
 }
@@ -178,7 +169,7 @@ std::string QueryResult::get<std::string>(size_t index) const {
 
     // Then, we call the SQLGetData function as usual, which writes the string to the result buffer and the length
     // to the resultLength value
-    SQLGetData(sqlStatementHandle, index + 1, SQL_CHAR, result, (SQLLEN) sizeof(result), &resultLength);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, result, (SQLLEN) sizeof(result), &resultLength);
 
     // Finally, we construct a string from the result buffer and length. This implicitly copies from the buffer,
     // so it does not matter that the buffer itself is in static space
@@ -189,7 +180,7 @@ template<>
 bool QueryResult::get<bool>(size_t index) const {
     SQLCHAR result;
 
-    SQLGetData(sqlStatementHandle, index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), nullptr);
 
     return result;
 }
@@ -199,7 +190,7 @@ size_t QueryResult::rowCount() const {
     SQLLEN rowCount;
 
     // Call the internal SQLRowCount function
-    SQLRowCount(sqlStatementHandle, &rowCount);
+    SQLRowCount(sqlStatementHandle.get(), &rowCount);
 
     // Return the resultant row count value
     return rowCount;
@@ -215,10 +206,10 @@ QueryResultRowIterator QueryResult::begin() {
     // but it will not be called for the first row, hence we manually increment it here as begin is called.
     fetchNextRow();
     // Return an iterator in position 0
-    return QueryResultRowIterator(0, this);
+    return QueryResultRowIterator(0, *this);
 }
 
 QueryResultRowIterator QueryResult::end() {
     // Return an iterator with the position of rowCount, meaning it will be the "final" row
-    return QueryResultRowIterator(rowCount(), this);
+    return QueryResultRowIterator(rowCount(), *this);
 }
