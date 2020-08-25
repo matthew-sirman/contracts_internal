@@ -43,12 +43,24 @@ namespace networking {
             }
         };
 
-        Header populateHeader() const;
+        Header createHeader() const;
 
         void invalidate();
 
         byte_buffer buff;
         size_t buffSize;
+    };
+
+    class RawMessage : public NetworkMessage {
+
+    };
+
+    class RSAMessage : public NetworkMessage {
+
+    };
+
+    class AESMessage : public NetworkMessage {
+
     };
 
 }

@@ -14,20 +14,20 @@
 
 namespace sql {
 
-    // SQLNullHandle
+    // null_handle_t
     // Represents a tag to disengage safe handles
-    struct SQLNullHandle {
+    struct null_handle_t {
         // Used to construct a null handle
         enum class __Construct {
             __Token
         };
 
         // Declared as constexpr to make the type a literal
-        explicit constexpr SQLNullHandle(__Construct) { }
+        explicit constexpr null_handle_t(__Construct) { }
     };
 
     // Tag to disengage safe handles
-    inline constexpr SQLNullHandle nullHandle { SQLNullHandle::__Construct::__Token };
+    inline constexpr null_handle_t null_handle { null_handle_t::__Construct::__Token };
 
     enum HandleType {
         ENVIRONMENT_HANDLE = SQL_HANDLE_ENV,
@@ -60,7 +60,7 @@ namespace sql {
         SQLSafeHandle<handleType> &operator=(const SQLSafeHandle<handleType> &) = delete;
 
         // Assignment to null handle operator
-        SQLSafeHandle<handleType> &operator=(SQLNullHandle) noexcept;
+        SQLSafeHandle<handleType> &operator=(null_handle_t) noexcept;
 
         // Move assignment operator
         SQLSafeHandle<handleType> &operator=(SQLSafeHandle<handleType> &&other) noexcept;
@@ -101,30 +101,30 @@ namespace sql {
     // Comparison operators with null handle types
 
     template<HandleType lhsType>
-    constexpr bool operator==(const SQLSafeHandle<lhsType> &lhs, SQLNullHandle) noexcept {
+    constexpr bool operator==(const SQLSafeHandle<lhsType> &lhs, null_handle_t) noexcept {
         return !lhs;
     }
 
     template<HandleType lhsType>
-    constexpr bool operator!=(const SQLSafeHandle<lhsType> &lhs, SQLNullHandle) noexcept {
+    constexpr bool operator!=(const SQLSafeHandle<lhsType> &lhs, null_handle_t) noexcept {
         return static_cast<bool>(lhs);
     }
 
     template<HandleType rhsType>
-    constexpr bool operator==(SQLNullHandle, const SQLSafeHandle<rhsType> &rhs) noexcept {
+    constexpr bool operator==(null_handle_t, const SQLSafeHandle<rhsType> &rhs) noexcept {
         return !rhs;
     }
 
     template<HandleType rhsType>
-    constexpr bool operator!=(SQLNullHandle, const SQLSafeHandle<rhsType> &rhs) noexcept {
+    constexpr bool operator!=(null_handle_t, const SQLSafeHandle<rhsType> &rhs) noexcept {
         return static_cast<bool>(rhs);
     }
 
-    constexpr bool operator==(SQLNullHandle, SQLNullHandle) noexcept {
+    constexpr bool operator==(null_handle_t, null_handle_t) noexcept {
         return true;
     }
 
-    constexpr bool operator!=(SQLNullHandle, SQLNullHandle) noexcept {
+    constexpr bool operator!=(null_handle_t, null_handle_t) noexcept {
         return false;
     }
 

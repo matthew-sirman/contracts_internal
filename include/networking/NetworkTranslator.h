@@ -1,0 +1,12 @@
+//
+// Created by Matthew.Sirman on 25/08/2020.
+//
+
+#ifndef CONTRACTS_SITE_CLIENT_NETWORKTRANSLATOR_H
+#define CONTRACTS_SITE_CLIENT_NETWORKTRANSLATOR_H
+
+namespace networking {
+
+}
+
+#endif //CONTRACTS_SITE_CLIENT_NETWORKTRANSLATOR_H

@@ -33,13 +33,13 @@ NetworkMessage &NetworkMessage::operator=(NetworkMessage &&other) {
 }
 
 byte_buffer NetworkMessage::sendStream() const {
-    Header header = populateHeader();
+    Header header = createHeader();
     byte_buffer sendBuffer = std::make_unique<byte[]>(header.size() + header.dataSize());
 
     return std::move(sendBuffer);
 }
 
-NetworkMessage::Header NetworkMessage::populateHeader() const {
+NetworkMessage::Header NetworkMessage::createHeader() const {
     Header header;
     header.sendBufferSize = 0;
 
