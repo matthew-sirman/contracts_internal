@@ -5,11 +5,8 @@
 #ifndef CONTRACTS_SITE_CLIENT_TCPSOCKET_H
 #define CONTRACTS_SITE_CLIENT_TCPSOCKET_H
 
-#ifndef _WINDOWS_
-#define WIN32_LEAN_AND_MEAN
+#include <WinSock2.h>
 #include <Windows.h>
-#undef WIN32_LEAN_AND_MEAN
-#endif
 #include <ws2tcpip.h>
 #include <strsafe.h>
 
@@ -48,7 +45,7 @@ namespace networking {
         // Friend the TCPSocket class so it may access the internal file descriptor sets
         friend class TCPSocket;
     public:
-        // Construcor
+        // Constructor
         TCPSocketSet();
 
         // Add a "read" socket to the set (i.e. a socket which may be checked for ability to read)
@@ -61,13 +58,13 @@ namespace networking {
         void addExceptSocket(const TCPSocket &sock);
 
         // Get the subset of read sockets which are ready to read
-        std::unordered_set<TCPSocket> reads() const;
+        [[nodiscard]] std::unordered_set<TCPSocket> reads() const;
 
         // Get the subset of write sockets which are ready to write
-        std::unordered_set<TCPSocket> writes() const;
+        [[nodiscard]] std::unordered_set<TCPSocket> writes() const;
 
         // Get the subset of exception sockets which are ready to be checked
-        std::unordered_set<TCPSocket> excepts() const;
+        [[nodiscard]] std::unordered_set<TCPSocket> excepts() const;
 
     private:
         // Internal sets of socket objects
@@ -103,7 +100,7 @@ namespace networking {
         TCPSocket &operator=(TCPSocket &&other) noexcept;
 
         // Bool cast operator
-        constexpr operator bool() const noexcept;
+        constexpr explicit operator bool() const noexcept;
 
         // Equality operator between two sockets
         bool operator==(const TCPSocket &other) const;
@@ -128,13 +125,17 @@ namespace networking {
         void listen() const;
 
         // Accept an incoming socket connection
-        TCPSocket accept() const;
+        [[nodiscard]] TCPSocket accept() const;
 
         // Send a message to this remote socket
         void send(NetworkMessage &&message) const;
 
         // Receive a message from this remote socket
-        NetworkMessage receive() const;
+        [[nodiscard]] NetworkMessage receive() const;
+
+        RSAMessage receiveRSA() const;
+
+        AESMessage receiveAES() const;
 
         // Select method to check a socket set for sockets ready to read, write and check for exceptions
         static void select(TCPSocketSet &socketSet);
@@ -166,12 +167,12 @@ namespace networking {
     class SocketException : public std::exception {
     public:
         // Constructor taking a string message
-        SocketException(const std::string &message);
+        explicit SocketException(const std::string &message);
 
     private:
         // Format the message string into a full error message with the formatted string
         // from the internal socket interface
-        std::string formatMessage(const std::string &userMessage) const;
+        [[nodiscard]] std::string formatMessage(const std::string &userMessage) const;
     };
 
 }

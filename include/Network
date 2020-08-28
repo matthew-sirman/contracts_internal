@@ -6,5 +6,6 @@
 #define CONTRACTS_SITE_CLIENT_NETWORK_H
 
 #include "networking/TCPSocket.h"
+#include "networking/protocol/Protocol.h"
 
 #endif //CONTRACTS_SITE_CLIENT_NETWORK_H

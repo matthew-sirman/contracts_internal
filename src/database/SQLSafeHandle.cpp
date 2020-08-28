@@ -34,7 +34,7 @@ SQLSafeHandle<handleType>::~SQLSafeHandle() {
 }
 
 template<HandleType handleType>
-SQLSafeHandle<handleType> &SQLSafeHandle<handleType>::operator=(SQLNullHandle) noexcept {
+SQLSafeHandle<handleType> &SQLSafeHandle<handleType>::operator=(null_handle_t) noexcept {
     // Destroy the handle - we are explicitly nullifying this handle
     destroy();
     return *this;
