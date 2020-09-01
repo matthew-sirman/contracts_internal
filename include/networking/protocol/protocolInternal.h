@@ -5,10 +5,15 @@
 #ifndef CONTRACTS_SITE_CLIENT_PROTOCOLINTERNAL_H
 #define CONTRACTS_SITE_CLIENT_PROTOCOLINTERNAL_H
 
+#include <functional>
+
 namespace networking {
 
     // Forward declare the protocol class
     class Protocol;
+
+    template<typename _Layer>
+    struct LayerReference;
 
     namespace internal {
 
@@ -77,6 +82,38 @@ namespace networking {
             const void *__data;
         };
 
+        // ParameterGroup
+        // Represents a group of dynamically polymorphic parameters of any type by masking the interfacing through
+        // templates.
+        // Essentially a wrapper for an arbitrary set of void pointers
+        struct ParameterGroup {
+        public:
+            // Static constructor which specifies the parameter set this should take,
+            // allowing the internal vector to be constructed to the correct size
+            template<typename ..._Group>
+            static ParameterGroup create();
+
+            // Getter for a specific element at the given index
+            template<typename _Ty>
+            const _Ty &get(size_t index) const;
+
+            // Setter for a specific element at the given index
+            template<typename _Ty>
+            void set(size_t index, const _Ty &value);
+
+            // Return if the group is fully filled or not
+            bool ready() const;
+
+            // Clears the parameter set
+            // Note this does not delete the values at the parameters, it simply removes the internal reference
+            // to them.
+            void clear();
+
+        private:
+            // Internal set of parameters stored as void pointers for the dynamic polymorphism
+            std::vector<const void *> __parameters;
+        };
+
         // Connector
         // Represents a connectable slot between two protocol layers.
         template<size_t _index, typename _Layer, typename _Ty>
@@ -143,6 +180,36 @@ namespace networking {
             explicit constexpr output_layer_t(_Construct) {}
         };
 
+        // Base Declaration for switcher type
+        template<bool, typename _Ty>
+        struct InputOrLayerSwitchType {
+
+        };
+
+        // Case if the bool is true - this represents a type which is a layer type
+        template<typename _Ty>
+        struct InputOrLayerSwitchType<true, _Ty> {
+            // Set the type to a const LayerReference of the layer type
+            using Type = const networking::LayerReference<_Ty> &;
+        };
+
+        // Case if the bool is false - this represents an input layer type
+        template<typename _Ty>
+        struct InputOrLayerSwitchType<false, _Ty> {
+            // Set the type to just a plain input layer type
+            using Type = input_layer_t;
+        };
+
+        // InputOrLayerSwitch
+        // The Type parameter is either filled with input_layer_t or const LayerReference<_Layer> & depending
+        // if _Layer inherits from ProtocolLayer.
+        template<typename _Layer>
+        struct InputOrLayerSwitch {
+            // Set the type to the type from the switcher, with the bool parameter filled by the std::is_base_of_v
+            // template
+            using Type = typename InputOrLayerSwitchType<std::is_base_of_v<ProtocolLayer, _Layer>, _Layer>::Type;
+        };
+
         template<typename _Ty>
         ParameterValue::ParameterValue(const _Ty &value) {
             // Set the internal void pointer to the address of whatever value is passed in
@@ -160,6 +227,35 @@ namespace networking {
         void ParameterValue::set(const _Ty &value) {
             // Set the internal void pointer to the address of whatever value is passed in
             __data = &value;
+        }
+
+        template<typename... _Group>
+        ParameterGroup ParameterGroup::create() {
+            // Create the group
+            ParameterGroup group;
+            // Resize the parameters list
+            group.__parameters.resize(sizeof...(_Group));
+            return group;
+        }
+
+        template<typename _Ty>
+        const _Ty &ParameterGroup::get(size_t index) const {
+            return *((_Ty *) __parameters[index]);
+        }
+
+        template<typename _Ty>
+        void ParameterGroup::set(size_t index, const _Ty &value) {
+            __parameters[index] = &value;
+        }
+
+        inline bool ParameterGroup::ready() const {
+            // Return that we are ready if every pointer is not null
+            return std::all_of(__parameters.begin(), __parameters.end(), [](const void *p) { return p; });
+        }
+
+        inline void ParameterGroup::clear() {
+            // Set each pointer to a nullptr
+            std::for_each(__parameters.begin(), __parameters.end(), [](const void *&p) { p = nullptr; });
         }
 
         template<size_t _index, typename _Layer, typename _Ty>
@@ -183,6 +279,14 @@ namespace networking {
             // Return the internal data as its actual type
             return data;
         }
+
+        // Expands the transform function arguments with their appropriate indices
+        template<typename _Ret, typename ..._Args, size_t ..._indices>
+        const _Ret &__transformerExpander(const std::function<const _Ret &(const typename _Args::ValueType &...)> &transform,
+                                  ParameterGroup &group, std::integer_sequence<size_t, _indices...>) {
+            return transform(group.get<typename _Args::ValueType>(_indices)...);
+        }
+
 
     }
 

@@ -68,6 +68,10 @@ void Protocol::execute() {
     }
 }
 
+void Protocol::clearData() {
+    std::for_each(parameterGroups.begin(), parameterGroups.end(), [](internal::ParameterGroup &group) { group.clear(); });
+}
+
 bool Protocol::LinkComparator::operator()(const LinkElement &lhs,
                                           const LinkElement &rhs) const {
     // Compare the two link elements by their (from) layer indices
