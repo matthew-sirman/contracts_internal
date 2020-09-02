@@ -21,11 +21,11 @@ void KeyExchange::activate() {
     switch (role) {
         case SENDER: {
             // Create the send buffer of the size of the key
-            byte_buffer buff = std::make_unique<byte[]>(sizeof(RSAPublicKey::ValueType));
+            byte_buffer buff(sizeof(RSAPublicKey::ValueType));
             // Copy the key data into the buffer
-            std::copy((byte *) &key.get(), (byte *) (&key.get() + 1), buff.get());
+            std::copy((byte *) &key.get(), (byte *) &key.get() + sizeof(RSAPublicKey::ValueType), buff.begin());
             // Construct a message from the buffer and send it on the socket
-            socket.get().send(NetworkMessage(std::move(buff), sizeof(RSAPublicKey::ValueType)));
+            socket.get().send(NetworkMessage(std::move(buff)));
             break;
         }
         case RECEIVER: {

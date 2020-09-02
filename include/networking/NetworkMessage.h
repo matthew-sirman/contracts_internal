@@ -10,6 +10,8 @@
 
 #include <encrypt.h>
 
+#include "buffer.h"
+
 #define BUFFER_CHUNK_SIZE 128u
 
 constexpr size_t paddedBufferSize(size_t size, size_t pad) {
@@ -23,18 +25,22 @@ namespace networking {
     // Forward declare the TCPSocket class
     class TCPSocket;
 
-    // Alias a byte
-    using byte = unsigned char;
-    // Alias a byte buffer as a unique pointer to a byte array
-    using byte_buffer = std::unique_ptr<byte[]>;
-    // Alias a shared byte buffer as a shared pointer to a byte array
-    using shared_byte_buffer = std::shared_ptr<byte[]>;
+    class NetworkMessageException : public std::exception {
+    public:
+        NetworkMessageException(const std::string &message);
+    };
+
+//    // Alias a byte buffer as a unique pointer to a byte array
+//    using byte_buffer = std::unique_ptr<byte[]>;
+//    // Alias a shared byte buffer as a shared pointer to a byte array
+//    using shared_byte_buffer = std::shared_ptr<byte[]>;
 
     // NetworkMessage
     // A messaging interface for composing and buffering messages for sending over a socket
     class NetworkMessage {
         // Friend the socket class
         friend class TCPSocket;
+
     public:
 
 //        // Header
@@ -70,8 +76,8 @@ namespace networking {
         // Default constructor
         NetworkMessage();
 
-        // Constructor from a byte buffer and its size
-        NetworkMessage(byte_buffer buffer, size_t bufferSize);
+        // Constructor from a byte buffer
+        NetworkMessage(byte_buffer buffer);
 
         // Deleted copy constructor
         NetworkMessage(const NetworkMessage &other) = delete;
@@ -89,10 +95,10 @@ namespace networking {
         NetworkMessage &operator=(NetworkMessage &&other) noexcept;
 
         // Begin iterator for the start of the buffer
-        const byte *begin();
+        const byte *begin() const;
 
         // End iterator for the end of the buffer
-        const byte *end();
+        const byte *end() const;
 
         // Clear the cache - it will be regenerated the next time it is implicitly requested
         void clearCache();
@@ -101,8 +107,12 @@ namespace networking {
 
         virtual size_t headerSize() const;
 
+        size_t messageSize() const;
+
+        void build();
+
     protected:
-        virtual bool checkMessageValid() const;
+        virtual bool checkMessageValid();
 
         // Create the header object for the message
         virtual byte_buffer createHeader();
@@ -122,8 +132,6 @@ namespace networking {
 
         // Pointer to the logical beginning of the data buffer
         byte *dataBegin() const;
-
-        constexpr size_t messageSize() const;
 
         void setMessageSize(size_t size);
 
@@ -162,13 +170,14 @@ namespace networking {
         // The data buffer (and its corresponding size)
         // The data buffer stores the raw byte data for this message
         byte_buffer dataBuffer;
-        size_t dataBufferSize;
+        bool dataPopulated = false;
+//        size_t dataBufferSize;
 
         // The cache buffer (and its corresponding size)
         // The cache buffer stores the complete buffer for communicating the data
         // for example the header and any encryption applied
         shared_byte_buffer __cached;
-        size_t __cachedBufferSize;
+//        size_t __cachedBufferSize;
 
         // The decoding index for tracking the current chunk of data being decoded
         size_t __decoderIndex{};
@@ -176,10 +185,12 @@ namespace networking {
 
     template<size_t _headerSize>
     void NetworkMessage::readHeader(const std::array<byte, _headerSize> &headerBuffer) {
-        byte_buffer headerStream = std::make_unique<byte[]>(_headerSize);
+//        byte_buffer headerStream = std::make_unique<byte[]>(_headerSize);
+
+        byte_buffer headerStream(_headerSize);
 
         // Copy the data from the header buffer into the header object
-        std::copy(headerBuffer.begin(), headerBuffer.end(), headerStream.get());
+        std::copy(headerBuffer.begin(), headerBuffer.end(), headerStream.begin());
 
 //    header.loadFromBuffer(std::move(headerStream));
 
@@ -188,13 +199,11 @@ namespace networking {
 
         reconstructHeader(std::move(headerStream));
 
-        // Calculate the size of the cache based upon the header
-        __cachedBufferSize = _headerSize + paddedBufferSize(dataBufferSize, BUFFER_CHUNK_SIZE);
         // Create the cache buffer of the correct size
-        __cached = std::shared_ptr<byte[]>(new byte[__cachedBufferSize]);
+        __cached = shared_byte_buffer(_headerSize + paddedBufferSize(dataBuffer.size(), BUFFER_CHUNK_SIZE));
 
         // Copy the header into the cache buffer
-        std::copy(headerBuffer.begin(), headerBuffer.end(), __cached.get());
+        std::copy(headerBuffer.begin(), headerBuffer.end(), __cached->get());
 
         // Initialise the decoder index to 0 - we have not actually decoded any chunks of data yet, just the
         // header
@@ -218,7 +227,7 @@ namespace networking {
         RSAMessage();
 
         // Constructor from the data buffer
-        RSAMessage(byte_buffer buffer, size_t bufferSize);
+        RSAMessage(byte_buffer buffer);
 
         // Deleted copy constructor
         RSAMessage(const RSAMessage &other) = delete;
@@ -243,11 +252,11 @@ namespace networking {
 
         constexpr static size_t _HeaderSize = sizeof(unsigned);
 
-        size_t headerSize() const override;
+        [[nodiscard]] size_t headerSize() const override;
 
     protected:
         // Override for the validity checker for this message
-        bool checkMessageValid() const override;
+        bool checkMessageValid() override;
 
         // Override for copying the raw data buffer into the cache buffer - encrypts the message
         void copyDataToCache() override;
@@ -265,7 +274,7 @@ namespace networking {
     public:
         AESMessage();
 
-        AESMessage(byte_buffer buffer, size_t bufferSize);
+        AESMessage(byte_buffer buffer);
 
         AESMessage(const AESMessage &other) = delete;
 
@@ -285,7 +294,7 @@ namespace networking {
 
     protected:
         // Override for the validity checker for this message
-        bool checkMessageValid() const override;
+        bool checkMessageValid() override;
 
         // Override for header creation method
         byte_buffer createHeader() override;

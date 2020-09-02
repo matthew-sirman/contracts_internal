@@ -47,8 +47,8 @@ void Protocol::execute() {
         // layerID. The goal is to activate each layer once and only once, in order, and only after it has been
         // fed all of its inputs. As there is no cyclic feeding, we know that if we have no more links which come
         // from a layer earlier than layerID, then each layer is ready for activation.
-        if (layerID > currentLayer) {
-            // Activate each layer from the current layer up to layerID
+        if (layerID >= currentLayer) {
+            // Activate each layer from the current layer up to layerID (exclusive)
             for (size_t l = currentLayer; l <= layerID; l++) {
                 layers[l]->activate();
             }

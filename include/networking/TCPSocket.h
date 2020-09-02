@@ -15,6 +15,7 @@
 #include <exception>
 #include <memory>
 #include <atomic>
+#include <optional>
 
 #include "NetworkMessage.h"
 
@@ -39,39 +40,7 @@ namespace std {
 
 namespace networking {
 
-    // TCPSocketSet
-    // Represents a set of sockets which may be used in select calls. Wraps low level C select interface
-    struct TCPSocketSet {
-        // Friend the TCPSocket class so it may access the internal file descriptor sets
-        friend class TCPSocket;
-    public:
-        // Constructor
-        TCPSocketSet();
-
-        // Add a "read" socket to the set (i.e. a socket which may be checked for ability to read)
-        void addReadSocket(const TCPSocket &sock);
-
-        // Add a "write" socket to the set (i.e. a socket which may be checked for ability to write)
-        void addWriteSocket(const TCPSocket &sock);
-
-        // Add an "exception" socket to the set (i.e. a socket which may be checked for exceptions)
-        void addExceptSocket(const TCPSocket &sock);
-
-        // Get the subset of read sockets which are ready to read
-        [[nodiscard]] std::unordered_set<TCPSocket> reads() const;
-
-        // Get the subset of write sockets which are ready to write
-        [[nodiscard]] std::unordered_set<TCPSocket> writes() const;
-
-        // Get the subset of exception sockets which are ready to be checked
-        [[nodiscard]] std::unordered_set<TCPSocket> excepts() const;
-
-    private:
-        // Internal sets of socket objects
-        std::unordered_set<TCPSocket> readSockets, writeSockets, exceptSockets;
-        // Internal C interface sets of file descriptors
-        FD_SET readFds{}, writeFds{}, exceptFds{};
-    };
+    struct TCPSocketSet;
 
     // TCPSocket
     // Wraps a low level C socket in a C++ style object
@@ -173,6 +142,45 @@ namespace networking {
         // Format the message string into a full error message with the formatted string
         // from the internal socket interface
         [[nodiscard]] std::string formatMessage(const std::string &userMessage) const;
+    };
+
+    // TCPSocketSet
+    // Represents a set of sockets which may be used in select calls. Wraps low level C select interface
+    struct TCPSocketSet {
+        // Friend the TCPSocket class so it may access the internal file descriptor sets
+        friend class TCPSocket;
+    public:
+        // Constructor
+        TCPSocketSet();
+
+        // Add a "read" socket to the set (i.e. a socket which may be checked for ability to read)
+        void addReadSocket(const TCPSocket &sock);
+
+        // Add a "write" socket to the set (i.e. a socket which may be checked for ability to write)
+        void addWriteSocket(const TCPSocket &sock);
+
+        // Add an "exception" socket to the set (i.e. a socket which may be checked for exceptions)
+        void addExceptSocket(const TCPSocket &sock);
+
+        void setAcceptSocket(const TCPSocket &sock);
+
+        // Get the subset of read sockets which are ready to read
+        [[nodiscard]] std::unordered_set<TCPSocket> reads() const;
+
+        // Get the subset of write sockets which are ready to write
+        [[nodiscard]] std::unordered_set<TCPSocket> writes() const;
+
+        // Get the subset of exception sockets which are ready to be checked
+        [[nodiscard]] std::unordered_set<TCPSocket> excepts() const;
+
+        [[nodiscard]] bool acceptReady() const;
+
+    private:
+        std::optional<TCPSocket> acceptSocket;
+        // Internal sets of socket objects
+        std::unordered_set<TCPSocket> readSockets, writeSockets, exceptSockets;
+        // Internal C interface sets of file descriptors
+        FD_SET readFds{}, writeFds{}, exceptFds{};
     };
 
 }

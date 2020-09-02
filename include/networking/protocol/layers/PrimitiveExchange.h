@@ -87,11 +87,11 @@ namespace networking {
         switch (role) {
             case SENDER: {
                 // Create the send buffer of the size of the primitive
-                byte_buffer buff = std::make_unique<byte[]>(sizeof(_Ty));
+                byte_buffer buff(sizeof(_Ty));
                 // Copy the internal value into the send buffer
-                std::copy(&val.get(), &val.get() + 1, (_Ty *) buff.get());
+                std::copy(&val.get(), &val.get() + 1, (_Ty *) buff.begin());
                 // Construct a message from the buffer and send it on the socket
-                socket.get().send(NetworkMessage(std::move(buff), sizeof(_Ty)));
+                socket.get().send(NetworkMessage(std::move(buff)));
                 break;
             }
             case RECEIVER: {

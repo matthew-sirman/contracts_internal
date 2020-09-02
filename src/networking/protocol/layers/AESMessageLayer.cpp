@@ -17,5 +17,21 @@ AESMessageLayer::AESMessageLayer(internal::role_receiver_t)
 }
 
 void AESMessageLayer::activate() {
-
+    switch (role) {
+        case SENDER: {
+            byte_buffer messageBuffer(message.get().size());
+            std::copy(message.get().begin(), message.get().end(), messageBuffer.begin());
+            AESMessage aesMessage(std::move(messageBuffer));
+            aesMessage.setAESKey(key.get());
+            socket.get().send(std::move(aesMessage));
+            break;
+        }
+        case RECEIVER: {
+            AESMessage aesMessage = socket.get().receiveAES();
+            aesMessage.setAESKey(key.get());
+            message.get() = shared_byte_buffer(aesMessage.messageSize());
+            std::copy(aesMessage.begin(), aesMessage.end(), message.get().begin());
+            break;
+        }
+    }
 }

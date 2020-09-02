@@ -14,6 +14,7 @@
 
 #include "layers/KeyExchange.h"
 #include "layers/RSAMessageLayer.h"
+#include "layers/AESMessageLayer.h"
 #include "layers/PrimitiveExchange.h"
 
 namespace networking {

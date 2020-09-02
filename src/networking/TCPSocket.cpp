@@ -43,6 +43,11 @@ void TCPSocketSet::addExceptSocket(const TCPSocket &sock) {
     FD_SET(sock.sock, &exceptFds);
 }
 
+void TCPSocketSet::setAcceptSocket(const TCPSocket &sock) {
+    acceptSocket = sock;
+    FD_SET(sock.sock, &readFds);
+}
+
 std::unordered_set<TCPSocket> TCPSocketSet::reads() const {
     // Create an empty unordered set for each set socket
     std::unordered_set<TCPSocket> setSockets;
@@ -89,6 +94,13 @@ std::unordered_set<TCPSocket> TCPSocketSet::excepts() const {
 
     // Return the set of set sockets
     return std::move(setSockets);
+}
+
+bool TCPSocketSet::acceptReady() const {
+    if (!acceptSocket.has_value()) {
+        return false;
+    }
+    return FD_ISSET(acceptSocket->sock, &readFds);
 }
 
 TCPSocket::TCPSocket()
@@ -175,7 +187,7 @@ TCPSocket &TCPSocket::operator=(const TCPSocket &other) noexcept {
     // If the usage counter isn't null (i.e. we are copying an actual socket rather than a null socket) then
     // we increment the usage counter
     if (this->__useCount) {
-        *(this->__useCount)++;
+        (*this->__useCount)++;
     }
 
     return *this;
@@ -350,7 +362,7 @@ TCPSocket TCPSocket::accept() const {
 
 void TCPSocket::send(NetworkMessage &&message) const {
     // Send the raw message data from the message object
-    ::send(sock, (const char *) message.sendStream().get(), message.sendStreamSize(), 0);
+    ::send(sock, (const char *) message.sendStream().begin(), message.sendStreamSize(), 0);
 }
 
 NetworkMessage TCPSocket::receive() const {
@@ -497,8 +509,8 @@ std::string SocketException::formatMessage(const std::string &userMessage) const
     // Print the passed in message, the error message and the error code into the buffer
     StringCchPrintf((LPTSTR) displayBuffer,
                     LocalSize(displayBuffer) / sizeof(TCHAR),
-                    TEXT("%s. %s (%d)"),
-                    (LPTSTR) userMessage.c_str(), messageBuffer, code
+                    TEXT("%s (%d): %s"),
+                    (LPTSTR) userMessage.c_str(), code, messageBuffer
     );
 
     // Convert the raw string back into a C++ string

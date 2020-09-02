@@ -21,11 +21,11 @@ void RSAMessageLayer::activate() {
     switch (role) {
         case SENDER: {
             // Create the message buffer
-            byte_buffer messageBuffer = std::make_unique<byte[]>(sizeof(uint2048));
+            byte_buffer messageBuffer(sizeof(uint2048));
             // Copy the message into the buffer
-            std::copy((byte *) &message.get(), (byte *) &message.get() + sizeof(uint2048), messageBuffer.get());
+            std::copy((byte *) &message.get(), (byte *) &message.get() + sizeof(uint2048), messageBuffer.begin());
             // Create the RSAMessage from this buffer
-            RSAMessage rsaMessage(std::move(messageBuffer), sizeof(uint2048));
+            RSAMessage rsaMessage(std::move(messageBuffer));
             // Give the message the public key to encrypt under
             rsaMessage.setPublicKey(publicKey.get());
             // Send the message on the socket
