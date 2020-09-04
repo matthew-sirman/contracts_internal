@@ -17,7 +17,7 @@
 #include <atomic>
 #include <optional>
 
-#include "NetworkMessage.h"
+#include "NetworkMessageV2.h"
 
 #define BACKLOG_QUEUE_SIZE 8
 #define INVALID_SOCK (SOCKET)(~0ULL)
@@ -97,14 +97,14 @@ namespace networking {
         [[nodiscard]] TCPSocket accept() const;
 
         // Send a message to this remote socket
-        void send(NetworkMessage &&message) const;
+        void send(MessageBase &&message) const;
 
         // Receive a message from this remote socket
         [[nodiscard]] NetworkMessage receive() const;
 
-        RSAMessage receiveRSA() const;
-
-        AESMessage receiveAES() const;
+//        RSAMessage receiveRSA() const;
+//
+//        AESMessage receiveAES() const;
 
         // Select method to check a socket set for sockets ready to read, write and check for exceptions
         static void select(TCPSocketSet &socketSet);

@@ -20,23 +20,13 @@ RSAMessageLayer::RSAMessageLayer(internal::role_receiver_t)
 void RSAMessageLayer::activate() {
     switch (role) {
         case SENDER: {
-            // Create the message buffer
-            byte_buffer messageBuffer(sizeof(uint2048));
-            // Copy the message into the buffer
-            std::copy((byte *) &message.get(), (byte *) &message.get() + sizeof(uint2048), messageBuffer.begin());
-            // Create the RSAMessage from this buffer
-            RSAMessage rsaMessage(std::move(messageBuffer));
-            // Give the message the public key to encrypt under
-            rsaMessage.setPublicKey(publicKey.get());
             // Send the message on the socket
-            socket.get().send(std::move(rsaMessage));
+            socket.get().send(std::move(RSAMessage(message.get(), publicKey.get())));
             break;
         }
         case RECEIVER: {
             // Receive a message from the socket
-            RSAMessage rsaMessage = socket.get().receiveRSA();
-            // Give the message the private key to decrypt with
-            rsaMessage.setPrivateKey(privateKey.get());
+            RSAMessage rsaMessage(socket.get().receive(), { publicKey.get(), privateKey.get() });
             // Copy from the message data into the internal value
             std::copy((uint2048 *) rsaMessage.begin(), (uint2048 *) rsaMessage.end(), &message.get());
             break;

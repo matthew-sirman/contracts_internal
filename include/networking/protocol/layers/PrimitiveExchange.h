@@ -91,12 +91,12 @@ namespace networking {
                 // Copy the internal value into the send buffer
                 std::copy(&val.get(), &val.get() + 1, (_Ty *) buff.begin());
                 // Construct a message from the buffer and send it on the socket
-                socket.get().send(NetworkMessage(std::move(buff)));
+                socket.get().send(std::move(RawMessage(std::move(buff))));
                 break;
             }
             case RECEIVER: {
                 // Receive a message from the socket
-                NetworkMessage valMessage = socket.get().receive();
+                RawMessage valMessage(socket.get().receive());
                 // Copy from the message data into the internal value
                 std::copy((const _Ty *) valMessage.begin(), (const _Ty *) valMessage.end(), &val.get());
                 break;

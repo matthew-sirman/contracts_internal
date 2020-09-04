@@ -25,12 +25,12 @@ void KeyExchange::activate() {
             // Copy the key data into the buffer
             std::copy((byte *) &key.get(), (byte *) &key.get() + sizeof(RSAPublicKey::ValueType), buff.begin());
             // Construct a message from the buffer and send it on the socket
-            socket.get().send(NetworkMessage(std::move(buff)));
+            socket.get().send(std::move(RawMessage(std::move(buff))));
             break;
         }
         case RECEIVER: {
             // Receive a message from the socket
-            NetworkMessage keyMessage = socket.get().receive();
+            RawMessage keyMessage(socket.get().receive());
             // Copy from the message data into the internal key value
             std::copy(keyMessage.begin(), keyMessage.end(), (byte *) &key.get());
             break;

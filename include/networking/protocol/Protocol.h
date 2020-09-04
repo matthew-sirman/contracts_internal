@@ -369,7 +369,7 @@ namespace networking {
                 _To::paramIndex(),
                 [&from]() {
                     // Return the parameter value from the "from" layer at the _From slot
-                    return from.template param<_From>().read();
+                    return internal::ParameterValue(from.template param<_From>().read());
                 }
         );
     }

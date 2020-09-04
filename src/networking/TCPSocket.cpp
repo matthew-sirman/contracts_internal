@@ -2,6 +2,8 @@
 // Created by Matthew.Sirman on 24/08/2020.
 //
 
+#include <array>
+
 #include "../../include/networking/TCPSocket.h"
 
 using namespace networking;
@@ -360,94 +362,102 @@ TCPSocket TCPSocket::accept() const {
     return std::move(acceptedSocket);
 }
 
-void TCPSocket::send(NetworkMessage &&message) const {
+void TCPSocket::send(MessageBase &&message) const {
+    // Create the network message to send
+    NetworkMessage networkMessage = message.message();
     // Send the raw message data from the message object
-    ::send(sock, (const char *) message.sendStream().begin(), message.sendStreamSize(), 0);
+    ::send(sock, (const char *) networkMessage.begin(), networkMessage.bufferSize(), 0);
 }
 
 NetworkMessage TCPSocket::receive() const {
     // Create an empty message object
-    NetworkMessage message;
+    NetworkMessageDecoder decoder;
 
     // Declare a fixed size array for the header of the message. The header is sent
     // initially, followed by the body
-    std::array<byte, NetworkMessage::_HeaderSize> header{};
+    std::array<byte, NetworkMessage::HeaderSize> header{};
 
     // Receive the header data
-    ::recv(sock, (char *) header.data(), header.size(), 0);
+    size_t testSize = ::recv(sock, (char *) header.data(), header.size(), 0);
     // Pass the header data to the message so it can decode it
-    message.readHeader(header);
+    decoder.decodeHeader(header);
 
     // Declare an array for the message chunks
-    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
+    std::array<byte, NetworkMessage::BufferChunkSize> chunk{};
+
+    bool test = false;
+
+    if (test) {
+        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
+    }
 
     // For as long as the message object is expecting data
-    while (message.expectingData()) {
+    while (decoder.expectingData()) {
         // Receive the next fixed size chunk
         ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
         // Pass the chunk to the message so it can decode it
-        message.readBuffer(chunk);
+        decoder.decodeChunk(chunk);
     }
 
     // Return the message by transferring ownership
-    return std::move(message);
+    return decoder.create();
 }
 
-RSAMessage TCPSocket::receiveRSA() const {
-    // Create an empty message object
-    RSAMessage message;
-
-    // Declare a fixed size array for the header of the message. The header is sent
-    // initially, followed by the body
-    std::array<byte, RSAMessage::_HeaderSize> header{};
-
-    // Receive the header data
-    ::recv(sock, (char *) header.data(), header.size(), 0);
-    // Pass the header data to the message so it can decode it
-    message.readHeader(header);
-
-    // Declare an array for the message chunks
-    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
-
-    // For as long as the message object is expecting data
-    while (message.expectingData()) {
-        // Receive the next fixed size chunk
-        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
-        // Pass the chunk to the message so it can decode it
-        message.readBuffer(chunk);
-    }
-
-    // Return the message by transferring ownership
-    return std::move(message);
-}
-
-AESMessage TCPSocket::receiveAES() const {
-    // Create an empty message object
-    AESMessage message;
-
-    // Declare a fixed size array for the header of the message. The header is sent
-    // initially, followed by the body
-    std::array<byte, AESMessage::_HeaderSize> header{};
-
-    // Receive the header data
-    ::recv(sock, (char *) header.data(), header.size(), 0);
-    // Pass the header data to the message so it can decode it
-    message.readHeader(header);
-
-    // Declare an array for the message chunks
-    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
-
-    // For as long as the message object is expecting data
-    while (message.expectingData()) {
-        // Receive the next fixed size chunk
-        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
-        // Pass the chunk to the message so it can decode it
-        message.readBuffer(chunk);
-    }
-
-    // Return the message by transferring ownership
-    return std::move(message);
-}
+//RSAMessage TCPSocket::receiveRSA() const {
+//    // Create an empty message object
+//    RSAMessage message;
+//
+//    // Declare a fixed size array for the header of the message. The header is sent
+//    // initially, followed by the body
+//    std::array<byte, RSAMessage::_HeaderSize> header{};
+//
+//    // Receive the header data
+//    ::recv(sock, (char *) header.data(), header.size(), 0);
+//    // Pass the header data to the message so it can decode it
+//    message.readHeader(header);
+//
+//    // Declare an array for the message chunks
+//    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
+//
+//    // For as long as the message object is expecting data
+//    while (message.expectingData()) {
+//        // Receive the next fixed size chunk
+//        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
+//        // Pass the chunk to the message so it can decode it
+//        message.readBuffer(chunk);
+//    }
+//
+//    // Return the message by transferring ownership
+//    return std::move(message);
+//}
+//
+//AESMessage TCPSocket::receiveAES() const {
+//    // Create an empty message object
+//    AESMessage message;
+//
+//    // Declare a fixed size array for the header of the message. The header is sent
+//    // initially, followed by the body
+//    std::array<byte, AESMessage::_HeaderSize> header{};
+//
+//    // Receive the header data
+//    ::recv(sock, (char *) header.data(), header.size(), 0);
+//    // Pass the header data to the message so it can decode it
+//    message.readHeader(header);
+//
+//    // Declare an array for the message chunks
+//    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
+//
+//    // For as long as the message object is expecting data
+//    while (message.expectingData()) {
+//        // Receive the next fixed size chunk
+//        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
+//        // Pass the chunk to the message so it can decode it
+//        message.readBuffer(chunk);
+//    }
+//
+//    // Return the message by transferring ownership
+//    return std::move(message);
+//}
 
 void TCPSocket::select(TCPSocketSet &socketSet) {
     // Call the select interface with the socket sets defined in the passed in object
