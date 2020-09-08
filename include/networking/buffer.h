@@ -95,6 +95,8 @@ public:
 
     byte_buffer uniqueCopy() const;
 
+    void resize(size_t n);
+
     size_t size() const;
 
 private:

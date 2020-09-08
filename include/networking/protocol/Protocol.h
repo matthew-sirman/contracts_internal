@@ -12,9 +12,11 @@
 #include <functional>
 #include <algorithm>
 
+#include "CodeProtocols.h"
 #include "layers/KeyExchange.h"
 #include "layers/RSAMessageLayer.h"
 #include "layers/AESMessageLayer.h"
+#include "layers/CodeTransferLayer.h"
 #include "layers/PrimitiveExchange.h"
 
 namespace networking {
@@ -87,7 +89,7 @@ namespace networking {
         template<typename _From, typename _To>
         void link(const LayerReference<typename _From::LayerType> &layerFrom,
                   const LayerReference<typename _To::LayerType> &layerTo,
-                  const std::function<const typename _To::ValueType &(const typename _From::ValueType &)> &transform);
+                  const std::function<typename _To::ValueType(const typename _From::ValueType &)> &transform);
 
         // Link the input layer to an intermediary layer. The _From parameter will feed into the _To parameter,
         // under the identity function, on layerTo when the feed function is called with the _From parameter.
@@ -106,7 +108,7 @@ namespace networking {
         template<typename _From, typename _To>
         void link(internal::input_layer_t,
                   const LayerReference<typename _To::LayerType> &layerTo,
-                  const std::function<const typename _To::ValueType &(const typename _From::ValueType &)> &transform);
+                  const std::function<typename _To::ValueType(const typename _From::ValueType &)> &transform);
 
         // Link an intermediary layer to the output layer. The _From parameter on layerFrom will feed into the _To
         // parameter, under the identity function, of the output when the read function is called with the _To parameter.
@@ -125,7 +127,7 @@ namespace networking {
         template<typename _From, typename _To>
         void link(const LayerReference<typename _From::LayerType> &layerFrom,
                   internal::output_layer_t,
-                  std::function<const typename _To::ValueType &(const typename _From::ValueType &)> &transform);
+                  const std::function<typename _To::ValueType(const typename _From::ValueType &)> &transform);
 
         // Link some set of parameters into a single input slot on a given layer. The inputs can come from intermediary
         // layers, or from the input. Once all of the required inputs are fed in, the transformer function is executed
@@ -136,7 +138,7 @@ namespace networking {
         template<typename _To, typename ..._From>
         void multiLink(typename internal::InputOrLayerSwitch<typename _From::LayerType>::Type ...layersFrom,
                        const LayerReference<typename _To::LayerType> &layerTo,
-                       const std::function<const typename _To::ValueType &(
+                       const std::function<typename _To::ValueType(
                                const typename _From::ValueType &...)> &transform);
 
         // Feed the given value into the parameter slot specified
@@ -152,6 +154,8 @@ namespace networking {
 
         // Clear the current data in the protocol
         void clearData();
+
+        bool completed() const;
 
     private:
         // Alias a "link" element, namely a function and its corresponding layer. This allows for
@@ -169,7 +173,7 @@ namespace networking {
         // Recursive function to add each required link slot to the protocol. This version of the function call
         // is enabled if the head _From slot is from an intermediary layer, not the input layer.
         template<typename _To, typename _From, typename ..._Rest>
-        void addMultiLinks(size_t index, internal::ParameterGroup &parameterGroup,
+        void addMultiLinks(size_t index, size_t parameterGroupIndex,
                             typename std::enable_if<std::is_base_of_v<internal::ProtocolLayer, typename _From::LayerType>,
                                     const LayerReference<typename _From::LayerType> &>::type layerFrom,
                             typename internal::InputOrLayerSwitch<_Rest>::Type ...restFrom,
@@ -179,7 +183,7 @@ namespace networking {
         // Recursive function to add each required feed slot to the protocol. This version of the function call
         // is enabled if the head _From slot is from the input layer.
         template<typename _To, typename _From, typename ..._Rest>
-        void addMultiLinks(size_t index, internal::ParameterGroup &parameterGroup,
+        void addMultiLinks(size_t index, size_t parameterGroupIndex,
                             typename std::enable_if<!std::is_base_of_v<internal::ProtocolLayer, typename _From::LayerType>,
                                     internal::input_layer_t>::type layerFrom,
                             typename internal::InputOrLayerSwitch<_Rest>::Type ...restFrom,
@@ -190,7 +194,7 @@ namespace networking {
         // an empty body
         template<typename _To, typename ..._Rest>
         typename std::enable_if<sizeof...(_Rest) == 0>::type
-        addMultiLinks(size_t, internal::ParameterGroup &, typename _To::LayerType &,
+        addMultiLinks(size_t, size_t, typename _To::LayerType &,
                        const std::function<const typename _To::ValueType &(internal::ParameterGroup &)> &) {}
 
         // Vector of layers stored as pointers such that they can be of any type derived from ProtocolLayer.
@@ -202,10 +206,10 @@ namespace networking {
         // Once these links are set up, a feed of parameter i will feed the given value to all links in the
         // vector pertaining to i.
         std::unordered_map<size_t, std::vector<std::function<void(internal::ParameterValue)>>> feeds;
-        // Set of link functions. This is stored in a set with an explicit comparator, so the elements
+        // Multiset of link functions. This is stored in a set with an explicit comparator, so the elements
         // will always be ordered by their layer upon insertion - we want to execute the linkers in the order
         // of the layer indices
-        std::set<LinkElement, LinkComparator> links;
+        std::multiset<LinkElement, LinkComparator> links;
         // One-to-one mapping from output slots to output functions
         std::unordered_map<size_t, std::function<internal::ParameterValue()>> outputs;
 
@@ -215,6 +219,8 @@ namespace networking {
         // Counter helper variable for the current layer index of the protocol. Incremented each time a layer
         // is added
         size_t currentLayerIndex = 0;
+
+        bool __completed = false;
     };
 
     // Alias for an internal protocol layer in the networking namespace. Allows for user defined layers to
@@ -304,7 +310,7 @@ namespace networking {
     void
     Protocol::link(const LayerReference<typename _From::LayerType> &layerFrom,
                    const LayerReference<typename _To::LayerType> &layerTo,
-                   const std::function<const typename _To::ValueType &(const typename _From::ValueType &)> &transform) {
+                   const std::function<typename _To::ValueType(const typename _From::ValueType &)> &transform) {
         // Get a reference to each of the layers for the lambda function
         typename _From::LayerType &from = layerFrom.__ref;
         typename _To::LayerType &to = layerTo.__ref;
@@ -339,7 +345,7 @@ namespace networking {
 
     template<typename _From, typename _To>
     void Protocol::link(internal::input_layer_t, const LayerReference<typename _To::LayerType> &layerTo,
-                        const std::function<const typename _To::ValueType &(
+                        const std::function<typename _To::ValueType(
                                 const typename _From::ValueType &)> &transform) {
         // Get a reference to the "to" layer for the lambda function
         typename _To::LayerType &to = layerTo.__ref;
@@ -376,7 +382,7 @@ namespace networking {
 
     template<typename _From, typename _To>
     void Protocol::link(const LayerReference<typename _From::LayerType> &layerFrom, internal::output_layer_t,
-                        std::function<const typename _To::ValueType &(const typename _From::ValueType &)> &transform) {
+                        const std::function<typename _To::ValueType(const typename _From::ValueType &)> &transform) {
         // Get a reference to the "from" layer for the lambda function
         typename _From::LayerType &from = layerFrom.__ref;
 
@@ -393,14 +399,13 @@ namespace networking {
     template<typename _To, typename... _From>
     void Protocol::multiLink(typename internal::InputOrLayerSwitch<typename _From::LayerType>::Type ...layersFrom,
                              const LayerReference<typename _To::LayerType> &layerTo,
-                             const std::function<const typename _To::ValueType &(const typename _From::ValueType &...)> &transform) {
+                             const std::function<typename _To::ValueType(const typename _From::ValueType &...)> &transform) {
         // Get a reference to the layer for the lambda function
         typename _To::LayerType &to = layerTo.__ref;
 
         parameterGroups.push_back(internal::ParameterGroup::create<typename _From::ValueType...>());
-        internal::ParameterGroup &group = parameterGroups.back();
 
-        addMultiLinks<_To, _From...>(0, group, layersFrom..., to, [transform](internal::ParameterGroup &parameterGroup) {
+        addMultiLinks<_To, _From...>(0, parameterGroups.size() - 1, layersFrom..., to, [transform](internal::ParameterGroup &parameterGroup) {
             return internal::__transformerExpander<typename _To::ValueType, _From...>(
                     transform, parameterGroup, std::make_integer_sequence<size_t, sizeof...(_From)>{}
             );
@@ -426,7 +431,7 @@ namespace networking {
     }
 
     template<typename _To, typename _From, typename... _Rest>
-    void Protocol::addMultiLinks(size_t index, internal::ParameterGroup &parameterGroup,
+    void Protocol::addMultiLinks(size_t index, size_t parameterGroupIndex,
                                   typename std::enable_if<std::is_base_of_v<internal::ProtocolLayer, typename _From::LayerType>,
                                           const LayerReference<typename _From::LayerType> &>::type layerFrom,
                                   typename internal::InputOrLayerSwitch<_Rest>::Type ...restFrom,
@@ -436,7 +441,8 @@ namespace networking {
         typename _From::LayerType &from = layerFrom.__ref;
 
         // Add the lambda to the link set
-        links.emplace(layerFrom.__index, [&from, &layerTo, transform, &parameterGroup, index]() {
+        links.emplace(layerFrom.__index, [this, &from, &layerTo, transform, parameterGroupIndex, index]() {
+            internal::ParameterGroup &parameterGroup = parameterGroups[parameterGroupIndex];
             // Set the parameter at the correct index in the parameter group to the correct from parameter
             parameterGroup.set(index, from.template param<_From>().read());
             // If the parameter group is completely filled, transform the group and pass the result into
@@ -447,11 +453,11 @@ namespace networking {
         });
 
         // Call the recursive case with the tail and incremented index
-        addMultiLinks<_To, _Rest...>(index + 1, parameterGroup, restFrom..., layerTo, transform);
+        addMultiLinks<_To, _Rest...>(index + 1, parameterGroupIndex, restFrom..., layerTo, transform);
     }
 
     template<typename _To, typename _From, typename... _Rest>
-    void Protocol::addMultiLinks(size_t index, internal::ParameterGroup &parameterGroup,
+    void Protocol::addMultiLinks(size_t index, size_t parameterGroupIndex,
                                   typename std::enable_if<!std::is_base_of_v<internal::ProtocolLayer, typename _From::LayerType>,
                                           internal::input_layer_t>::type layerFrom,
                                   typename internal::InputOrLayerSwitch<_Rest>::Type ...restFrom,
@@ -461,7 +467,8 @@ namespace networking {
         // Add a new entry to the list of feeds for the specific slot index. This allows for a one-to-many
         // mapping
         feeds[_From::paramIndex()].emplace_back(
-                [&layerTo, &parameterGroup, transform, index](internal::ParameterValue value) {
+                [this, &layerTo, parameterGroupIndex, transform, index](internal::ParameterValue value) {
+                    internal::ParameterGroup &parameterGroup = parameterGroups[parameterGroupIndex];
                     // Set the parameter at the correct index in the parameter group to the correct from parameter
                     parameterGroup.set(index, value.get<typename _From::ValueType>());
                     // If the parameter group is completely filled, transform the group and pass the result into
@@ -473,7 +480,7 @@ namespace networking {
         );
 
         // Call the recursive case with the tail and incremented index
-        addMultiLinks<_To, _Rest...>(index + 1, parameterGroup, restFrom..., layerTo, transform);
+        addMultiLinks<_To, _Rest...>(index + 1, parameterGroupIndex, restFrom..., layerTo, transform);
     }
 
 }

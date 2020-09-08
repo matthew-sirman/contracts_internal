@@ -25,6 +25,10 @@ void AESMessageLayer::activate() {
         }
         case RECEIVER: {
             AESMessage aesMessage(socket.get().receive(), key.get());
+            if (aesMessage.invalid()) {
+                markProtocolTermination();
+                return;
+            }
             message.get() = shared_byte_buffer(aesMessage.size());
             std::copy(aesMessage.begin(), aesMessage.end(), message.get().begin());
             break;

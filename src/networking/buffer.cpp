@@ -166,6 +166,10 @@ byte_buffer shared_byte_buffer::uniqueCopy() const {
     return std::move(__copy);
 }
 
+void shared_byte_buffer::resize(size_t n) {
+    __buffer->resize(n);
+}
+
 size_t shared_byte_buffer::size() const {
     return __buffer->size();
 }

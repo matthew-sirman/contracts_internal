@@ -97,6 +97,10 @@ namespace networking {
             case RECEIVER: {
                 // Receive a message from the socket
                 RawMessage valMessage(socket.get().receive());
+                if (valMessage.invalid()) {
+                    markProtocolTermination();
+                    return;
+                }
                 // Copy from the message data into the internal value
                 std::copy((const _Ty *) valMessage.begin(), (const _Ty *) valMessage.end(), &val.get());
                 break;

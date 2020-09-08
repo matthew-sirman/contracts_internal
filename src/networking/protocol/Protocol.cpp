@@ -32,6 +32,8 @@ Protocol &Protocol::operator=(Protocol &&other) noexcept {
 }
 
 void Protocol::execute() {
+    __completed = false;
+
     // Initialise the current layer to 0
     size_t currentLayer = 0;
 
@@ -51,6 +53,9 @@ void Protocol::execute() {
             // Activate each layer from the current layer up to layerID (exclusive)
             for (size_t l = currentLayer; l <= layerID; l++) {
                 layers[l]->activate();
+                if (layers[l]->protocolTerminated()) {
+                    return;
+                }
             }
             // Update the current layer to layer ID + 1
             currentLayer = layerID + 1;
@@ -65,11 +70,23 @@ void Protocol::execute() {
     // list, we activate it.
     for (size_t l = currentLayer; l < layers.size(); l++) {
         layers[l]->activate();
+        if (layers[l]->protocolTerminated()) {
+            return;
+        }
     }
+
+    __completed = true;
 }
 
 void Protocol::clearData() {
     std::for_each(parameterGroups.begin(), parameterGroups.end(), [](internal::ParameterGroup &group) { group.clear(); });
+    for (std::unique_ptr<internal::ProtocolLayer> &layer : layers) {
+        layer->reset();
+    }
+}
+
+bool Protocol::completed() const {
+    return __completed;
 }
 
 bool Protocol::LinkComparator::operator()(const LinkElement &lhs,

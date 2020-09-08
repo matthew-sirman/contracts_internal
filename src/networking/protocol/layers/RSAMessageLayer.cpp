@@ -27,6 +27,10 @@ void RSAMessageLayer::activate() {
         case RECEIVER: {
             // Receive a message from the socket
             RSAMessage rsaMessage(socket.get().receive(), { publicKey.get(), privateKey.get() });
+            if (rsaMessage.invalid()) {
+                markProtocolTermination();
+                return;
+            }
             // Copy from the message data into the internal value
             std::copy((uint2048 *) rsaMessage.begin(), (uint2048 *) rsaMessage.end(), &message.get());
             break;

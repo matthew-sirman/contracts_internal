@@ -55,6 +55,15 @@ namespace networking {
 
             // Pure virtual activation function. This is called for each layer when the protocol is executed.
             virtual void activate() = 0;
+
+            void markProtocolTermination();
+
+            bool protocolTerminated() const;
+
+            void reset();
+
+        private:
+            bool terminateProtocol = false;
         };
 
         // ParameterValue
@@ -209,6 +218,18 @@ namespace networking {
             // template
             using Type = typename InputOrLayerSwitchType<std::is_base_of_v<ProtocolLayer, _Layer>, _Layer>::Type;
         };
+
+        inline void ProtocolLayer::markProtocolTermination() {
+            terminateProtocol = true;
+        }
+
+        inline bool ProtocolLayer::protocolTerminated() const {
+            return terminateProtocol;
+        }
+
+        inline void ProtocolLayer::reset() {
+            terminateProtocol = false;
+        }
 
         template<typename _Ty>
         ParameterValue::ParameterValue(const _Ty &value) {

@@ -100,7 +100,7 @@ namespace networking {
         void send(MessageBase &&message) const;
 
         // Receive a message from this remote socket
-        [[nodiscard]] NetworkMessage receive() const;
+        [[nodiscard]] NetworkMessage receive();
 
 //        RSAMessage receiveRSA() const;
 //
@@ -122,7 +122,7 @@ namespace networking {
 
         // Shared usage counter for copied sockets. The internal socket will be destroyed when it has no
         // remaining references
-        int *__useCount;
+        std::shared_ptr<int> __useCount;
 
         // Static management system for global socket reference counting. This allows for the WSA system
         // to be started up when the first socket is created and cleaned up when all sockets go out of scope.
@@ -141,7 +141,7 @@ namespace networking {
     private:
         // Format the message string into a full error message with the formatted string
         // from the internal socket interface
-        [[nodiscard]] std::string formatMessage(const std::string &userMessage) const;
+        [[nodiscard]] static std::string formatMessage(const std::string &userMessage) ;
     };
 
     // TCPSocketSet
@@ -153,14 +153,14 @@ namespace networking {
         // Constructor
         TCPSocketSet();
 
-        // Add a "read" socket to the set (i.e. a socket which may be checked for ability to read)
-        void addReadSocket(const TCPSocket &sock);
+        // Add a socket to the set (i.e. a socket which may be checked by select)
+        void addSocket(const TCPSocket &sock);
 
-        // Add a "write" socket to the set (i.e. a socket which may be checked for ability to write)
-        void addWriteSocket(const TCPSocket &sock);
-
-        // Add an "exception" socket to the set (i.e. a socket which may be checked for exceptions)
-        void addExceptSocket(const TCPSocket &sock);
+//        // Add a "write" socket to the set (i.e. a socket which may be checked for ability to write)
+//        void addWriteSocket(const TCPSocket &sock);
+//
+//        // Add an "exception" socket to the set (i.e. a socket which may be checked for exceptions)
+//        void addExceptSocket(const TCPSocket &sock);
 
         void setAcceptSocket(const TCPSocket &sock);
 
@@ -176,9 +176,11 @@ namespace networking {
         [[nodiscard]] bool acceptReady() const;
 
     private:
+        void buildFDSets();
+
         std::optional<TCPSocket> acceptSocket;
         // Internal sets of socket objects
-        std::unordered_set<TCPSocket> readSockets, writeSockets, exceptSockets;
+        std::unordered_set<TCPSocket> sockets;//, writeSockets, exceptSockets;
         // Internal C interface sets of file descriptors
         FD_SET readFds{}, writeFds{}, exceptFds{};
     };

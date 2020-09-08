@@ -7,25 +7,30 @@
 using namespace networking;
 
 NetworkMessage::NetworkMessage()
-        : sendBuffer(nullptr) {
+        : sendBuffer(nullptr), __messageSize(0), __invalid(false) {
 
 }
 
 NetworkMessage::NetworkMessage(const byte_buffer &buffer)
-        : sendBuffer(calculateSendBufferSize(buffer.size())), __messageSize(buffer.size()) {
+        : sendBuffer(calculateSendBufferSize(buffer.size())), __messageSize(buffer.size()), __invalid(false) {
     std::copy((byte *) &__messageSize, (byte *) &__messageSize + sizeof(unsigned), sendBuffer.begin());
     std::copy(buffer.cbegin(), buffer.cend(), sendBuffer.begin() + sizeof(unsigned));
 }
 
 NetworkMessage::NetworkMessage(const shared_byte_buffer &&buffer)
-        : sendBuffer(calculateSendBufferSize(buffer.size())), __messageSize(buffer.size()) {
+        : sendBuffer(calculateSendBufferSize(buffer.size())), __messageSize(buffer.size()), __invalid(false) {
     std::copy((byte *) &__messageSize, (byte *) &__messageSize + sizeof(unsigned), sendBuffer.begin());
     std::copy(buffer.cbegin(), buffer.cend(), sendBuffer.begin() + sizeof(unsigned));
 }
 
 NetworkMessage::NetworkMessage(NetworkMessage &&other) noexcept
-        : sendBuffer(std::move(other.sendBuffer)), __messageSize(other.__messageSize) {
+        : sendBuffer(std::move(other.sendBuffer)), __messageSize(other.__messageSize), __invalid(other.__invalid) {
     other.__messageSize = 0;
+}
+
+NetworkMessage::NetworkMessage(invalid_message_t)
+        : sendBuffer(nullptr), __messageSize(0), __invalid(true) {
+
 }
 
 NetworkMessage::~NetworkMessage() = default;
@@ -38,6 +43,7 @@ NetworkMessage &NetworkMessage::operator=(NetworkMessage &&other) noexcept {
     this->sendBuffer = std::move(other.sendBuffer);
     this->__messageSize = other.__messageSize;
     other.__messageSize = 0;
+    this->__invalid = other.__invalid;
 
     return *this;
 }
@@ -66,8 +72,12 @@ byte *NetworkMessage::end() {
     return sendBuffer.end();
 }
 
+bool NetworkMessage::invalid() const {
+    return __invalid;
+}
+
 NetworkMessage::NetworkMessage(byte_buffer &&buffer, size_t messageSize)
-        : sendBuffer(std::move(buffer)), __messageSize(messageSize) {
+        : sendBuffer(std::move(buffer)), __messageSize(messageSize), __invalid(false) {
 
 }
 
@@ -91,7 +101,7 @@ NetworkMessage NetworkMessageBuilder::create() {
 }
 
 NetworkMessageDecoder::NetworkMessageDecoder()
-        : buff(nullptr), decoderStep(0), messageSize(0) {
+        : buff(nullptr), decoderStep(0), messageSize(0), invalid(false) {
 
 }
 
@@ -113,16 +123,28 @@ bool NetworkMessageDecoder::expectingData() const {
 }
 
 NetworkMessage NetworkMessageDecoder::create() {
+    if (invalid) {
+        return std::move(NetworkMessage(invalid_message));
+    }
     return std::move(NetworkMessage(std::move(buff), messageSize));
 }
 
+void NetworkMessageDecoder::invalidate() {
+    invalid = true;
+}
+
 MessageBase::MessageBase()
-        : buffer(nullptr) {
+        : buffer(nullptr), __invalid(false) {
 
 }
 
 MessageBase::MessageBase(byte_buffer &&buffer)
-        : buffer(std::move(buffer)) {
+        : buffer(std::move(buffer)), __invalid(false) {
+
+}
+
+MessageBase::MessageBase(invalid_message_t)
+        : buffer((size_t) 0), __invalid(true) {
 
 }
 
@@ -162,12 +184,22 @@ RawMessage::RawMessage(const shared_byte_buffer &buffer)
 
 }
 
+RawMessage::RawMessage(invalid_message_t)
+        : MessageBase(invalid_message) {
+
+}
+
 RawMessage::RawMessage(RawMessage &&other) noexcept
         : MessageBase(std::move(other.buffer)) {
 
 }
 
 RawMessage::RawMessage(const NetworkMessage &message) {
+    if (message.invalid()) {
+        buffer = byte_buffer((size_t) 0);
+        return;
+    }
+
     buffer = byte_buffer(message.messageSize());
     std::copy(message.messageBegin(), message.messageEnd(), buffer.begin());
 }
@@ -210,12 +242,23 @@ RSAMessage::RSAMessage(const shared_byte_buffer &buffer, RSAKeyPair::Public encr
 
 }
 
+RSAMessage::RSAMessage(invalid_message_t)
+        : MessageBase(invalid_message) {
+
+}
+
 RSAMessage::RSAMessage(RSAMessage &&other) noexcept
         : MessageBase(std::move(other.buffer)) {
     this->encryptionKey = other.encryptionKey;
 }
 
 RSAMessage::RSAMessage(const NetworkMessage &message, RSAKeyPair keys) {
+    if (message.invalid()) {
+        __invalid = true;
+        buffer = byte_buffer((size_t) 0);
+        return;
+    }
+
     size_t rawMessageSize = 0;
     std::copy(message.messageBegin(), message.messageBegin() + sizeof(unsigned), (byte *) &rawMessageSize);
     uint2048 encrypted;
@@ -261,34 +304,46 @@ NetworkMessage RSAMessage::message() const {
 }
 
 AESMessage::AESMessage()
-        : MessageBase() {
+        : MessageBase(), messageSize(0) {
 
 }
 
 AESMessage::AESMessage(const byte_buffer &buffer, AESKey key)
-        : MessageBase(buffer.copy()), key(key) {
+        : MessageBase(buffer.copy()), messageSize(buffer.size()), key(key) {
 
 }
 
 AESMessage::AESMessage(byte_buffer &&buffer, AESKey key)
-        : MessageBase(std::move(buffer)), key(key) {
+        : MessageBase(std::move(buffer)), messageSize(this->buffer.size()), key(key) {
 
 }
 
 AESMessage::AESMessage(const shared_byte_buffer &buffer, AESKey key)
-        : MessageBase(buffer.uniqueCopy()), key(key) {
+        : MessageBase(buffer.uniqueCopy()), messageSize(buffer.size()), key(key) {
+
+}
+
+AESMessage::AESMessage(invalid_message_t)
+        : MessageBase(invalid_message), messageSize(0) {
 
 }
 
 AESMessage::AESMessage(AESMessage &&other) noexcept
-        : MessageBase(std::move(other.buffer)), key(other.key) {
+        : MessageBase(std::move(other.buffer)), messageSize(other.messageSize), key(other.key) {
 
 }
 
 AESMessage::AESMessage(const NetworkMessage &message, AESKey key)
         : key(key) {
+    if (message.invalid()) {
+        __invalid = true;
+        messageSize = 0;
+        buffer = byte_buffer((size_t) 0);
+        return;
+    }
+
     uint64 initialisationVector;
-    size_t messageSize = 0;
+    messageSize = 0;
 
     std::copy(message.messageBegin(), message.messageBegin() + sizeof(unsigned), (byte *) &messageSize);
     std::copy(message.messageBegin() + sizeof(unsigned),
@@ -309,6 +364,7 @@ AESMessage &AESMessage::operator=(AESMessage &&other) noexcept {
     }
 
     this->buffer = std::move(other.buffer);
+    this->messageSize = other.messageSize;
     this->key = other.key;
 
     return *this;
@@ -317,7 +373,6 @@ AESMessage &AESMessage::operator=(AESMessage &&other) noexcept {
 NetworkMessage AESMessage::message() const {
     size_t encryptedSize = paddedSize(buffer.size(), 16u);
     NetworkMessageBuilder messageBuilder(sizeof(unsigned) + sizeof(uint64) + encryptedSize);
-    size_t messageSize = buffer.size();
     uint64 initialisationVector;
     CryptoSafeRandom::random(&initialisationVector, sizeof(uint64));
     std::copy((byte *) &messageSize, (byte *) &messageSize + sizeof(unsigned), messageBuilder.begin());
@@ -327,4 +382,8 @@ NetworkMessage AESMessage::message() const {
             messageBuilder.begin() + sizeof(unsigned) + sizeof(uint64), initialisationVector, key);
 
     return std::move(messageBuilder.create());
+}
+
+byte *AESMessage::end() {
+    return MessageBase::begin() + messageSize;
 }

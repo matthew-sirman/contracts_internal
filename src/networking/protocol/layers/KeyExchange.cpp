@@ -31,6 +31,10 @@ void KeyExchange::activate() {
         case RECEIVER: {
             // Receive a message from the socket
             RawMessage keyMessage(socket.get().receive());
+            if (keyMessage.invalid()) {
+                markProtocolTermination();
+                return;
+            }
             // Copy from the message data into the internal key value
             std::copy(keyMessage.begin(), keyMessage.end(), (byte *) &key.get());
             break;

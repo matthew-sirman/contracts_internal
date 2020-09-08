@@ -19,6 +19,16 @@ namespace networking {
         return (size / chunkSize + (size % chunkSize != 0)) * chunkSize;
     }
 
+    struct invalid_message_t {
+        enum _Construct {
+            _Token
+        };
+
+        explicit constexpr invalid_message_t(_Construct) {}
+    };
+
+    constexpr invalid_message_t invalid_message { invalid_message_t::_Construct::_Token };
+
     // Interfacing class for sending data across sockets - simply holds the data
     // and header, no knowledge of encryption
     // - Fixed size header, or variable?
@@ -40,6 +50,8 @@ namespace networking {
         NetworkMessage(const NetworkMessage &other) = delete;
 
         NetworkMessage(NetworkMessage &&other) noexcept;
+
+        NetworkMessage(invalid_message_t);
 
         ~NetworkMessage();
 
@@ -67,6 +79,8 @@ namespace networking {
             return __messageSize;
         }
 
+        bool invalid() const;
+
     private:
         constexpr static size_t calculateSendBufferSize(size_t bufferSize) {
             return HeaderSize + paddedSize(bufferSize, BufferChunkSize);
@@ -76,12 +90,13 @@ namespace networking {
 
         byte_buffer sendBuffer;
         size_t __messageSize;
+        bool __invalid;
     };
 
     // Helper class for building network messages
     class NetworkMessageBuilder {
     public:
-        NetworkMessageBuilder(size_t requiredBufferSize);
+        explicit NetworkMessageBuilder(size_t requiredBufferSize);
 
         byte *begin();
 
@@ -107,10 +122,13 @@ namespace networking {
 
         NetworkMessage create();
 
+        void invalidate();
+
     private:
         byte_buffer buff;
         size_t decoderStep;
         size_t messageSize;
+        bool invalid;
     };
 
     // Base interface for different message types
@@ -118,7 +136,9 @@ namespace networking {
     public:
         MessageBase();
 
-        MessageBase(byte_buffer &&buffer);
+        explicit MessageBase(byte_buffer &&buffer);
+
+        explicit MessageBase(invalid_message_t);
 
         virtual NetworkMessage message() const = 0;
 
@@ -126,16 +146,22 @@ namespace networking {
 
         const byte *cend() const;
 
-        byte *begin();
+        virtual byte *begin();
 
-        byte *end();
+        virtual byte *end();
 
         constexpr size_t size() const {
             return buffer.size();
         }
 
+        constexpr bool invalid() const {
+            return __invalid;
+        }
+
     protected:
         byte_buffer buffer;
+
+        bool __invalid;
     };
 
     // Contains a raw, unencrypted message
@@ -143,11 +169,13 @@ namespace networking {
     public:
         RawMessage();
 
-        RawMessage(const byte_buffer &buffer);
+        explicit RawMessage(const byte_buffer &buffer);
 
-        RawMessage(byte_buffer &&buffer);
+        explicit RawMessage(byte_buffer &&buffer);
 
-        RawMessage(const shared_byte_buffer &buffer);
+        explicit RawMessage(const shared_byte_buffer &buffer);
+
+        explicit RawMessage(invalid_message_t);
 
         RawMessage(const RawMessage &other) = delete;
 
@@ -178,6 +206,8 @@ namespace networking {
 
         RSAMessage(const shared_byte_buffer &buffer, RSAKeyPair::Public encryptionKey);
 
+        explicit RSAMessage(invalid_message_t);
+
         RSAMessage(const RSAMessage &other) = delete;
 
         RSAMessage(RSAMessage &&other) noexcept;
@@ -207,6 +237,8 @@ namespace networking {
 
         AESMessage(const shared_byte_buffer &buffer, AESKey key);
 
+        explicit AESMessage(invalid_message_t);
+
         AESMessage(const AESMessage &other) = delete;
 
         AESMessage(AESMessage &&other) noexcept;
@@ -220,8 +252,13 @@ namespace networking {
         AESMessage &operator=(AESMessage &&other) noexcept;
 
         NetworkMessage message() const override;
+
+        byte *end() override;
+
     private:
         AESKey key;
+
+        size_t messageSize;
     };
 
 }

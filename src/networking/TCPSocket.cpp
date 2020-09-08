@@ -18,36 +18,36 @@ size_t std::hash<networking::TCPSocket>::operator()(const TCPSocket &sock) const
 }
 
 TCPSocketSet::TCPSocketSet() {
-    // Zero each file descriptor set to initialise them
-    FD_ZERO(&readFds);
-    FD_ZERO(&writeFds);
-    FD_ZERO(&exceptFds);
+//    // Zero each file descriptor set to initialise them
+//    FD_ZERO(&readFds);
+//    FD_ZERO(&writeFds);
+//    FD_ZERO(&exceptFds);
 }
 
-void TCPSocketSet::addReadSocket(const TCPSocket &sock) {
+void TCPSocketSet::addSocket(const TCPSocket &sock) {
     // Add the socket to the read sockets set object
-    readSockets.insert(sock);
-    // Add the file descriptor to the internal set
-    FD_SET(sock.sock, &readFds);
+    sockets.insert(sock);
+//    // Add the file descriptor to the internal set
+//    FD_SET(sock.sock, &readFds);
 }
 
-void TCPSocketSet::addWriteSocket(const TCPSocket &sock) {
-    // Add the socket to the write sockets set object
-    writeSockets.insert(sock);
-    // Add the file descriptor to the internal set
-    FD_SET(sock.sock, &writeFds);
-}
-
-void TCPSocketSet::addExceptSocket(const TCPSocket &sock) {
-    // Add the socket to the except sockets set object
-    exceptSockets.insert(sock);
-    // Add the file descriptor to the internal set
-    FD_SET(sock.sock, &exceptFds);
-}
+//void TCPSocketSet::addWriteSocket(const TCPSocket &sock) {
+//    // Add the socket to the write sockets set object
+//    writeSockets.insert(sock);
+//    // Add the file descriptor to the internal set
+//    FD_SET(sock.sock, &writeFds);
+//}
+//
+//void TCPSocketSet::addExceptSocket(const TCPSocket &sock) {
+//    // Add the socket to the except sockets set object
+//    exceptSockets.insert(sock);
+//    // Add the file descriptor to the internal set
+//    FD_SET(sock.sock, &exceptFds);
+//}
 
 void TCPSocketSet::setAcceptSocket(const TCPSocket &sock) {
     acceptSocket = sock;
-    FD_SET(sock.sock, &readFds);
+//    FD_SET(sock.sock, &readFds);
 }
 
 std::unordered_set<TCPSocket> TCPSocketSet::reads() const {
@@ -55,7 +55,7 @@ std::unordered_set<TCPSocket> TCPSocketSet::reads() const {
     std::unordered_set<TCPSocket> setSockets;
 
     // Loop over each socket
-    for (const TCPSocket &sock : readSockets) {
+    for (const TCPSocket &sock : sockets) {
         // If the socket is set (by select) add it to the set sockets
         if (FD_ISSET(sock.sock, &readFds)) {
             setSockets.insert(sock);
@@ -71,7 +71,7 @@ std::unordered_set<TCPSocket> TCPSocketSet::writes() const {
     std::unordered_set<TCPSocket> setSockets;
 
     // Loop over each socket
-    for (const TCPSocket &sock : writeSockets) {
+    for (const TCPSocket &sock : sockets) {
         // If the socket is set (by select) add it to the set sockets
         if (FD_ISSET(sock.sock, &writeFds)) {
             setSockets.insert(sock);
@@ -87,7 +87,7 @@ std::unordered_set<TCPSocket> TCPSocketSet::excepts() const {
     std::unordered_set<TCPSocket> setSockets;
 
     // Loop over each socket
-    for (const TCPSocket &sock : exceptSockets) {
+    for (const TCPSocket &sock : sockets) {
         // If the socket is set (by select) add it to the set sockets
         if (FD_ISSET(sock.sock, &exceptFds)) {
             setSockets.insert(sock);
@@ -103,6 +103,22 @@ bool TCPSocketSet::acceptReady() const {
         return false;
     }
     return FD_ISSET(acceptSocket->sock, &readFds);
+}
+
+void TCPSocketSet::buildFDSets() {
+    FD_ZERO(&readFds);
+    FD_ZERO(&writeFds);
+    FD_ZERO(&exceptFds);
+
+    if (acceptSocket.has_value()) {
+        FD_SET(acceptSocket->sock, &readFds);
+    }
+
+    for (const TCPSocket &sock : sockets) {
+        FD_SET(sock.sock, &readFds);
+        FD_SET(sock.sock, &writeFds);
+        FD_SET(sock.sock, &exceptFds);
+    }
 }
 
 TCPSocket::TCPSocket()
@@ -138,7 +154,7 @@ TCPSocket::TCPSocket(TCPSocket &&socket) noexcept {
     this->sock = socket.sock;
     // Copy the pointer to the usage counter (we do not have to worry about the usage counter already having
     // a value as this is the constructor)
-    this->__useCount = socket.__useCount;
+    this->__useCount = std::move(socket.__useCount);
     // Note: we do not increment the usage counter here because this is a move - the original socket object is
     // being invalidated and so the total usages doesn't change
 
@@ -214,7 +230,7 @@ TCPSocket &TCPSocket::operator=(TCPSocket &&other) noexcept {
     // Copy across the file descriptor
     this->sock = other.sock;
     // Copy across the usage counter
-    this->__useCount = other.__useCount;
+    this->__useCount = std::move(other.__useCount);
     // Note: we do not increment the usage counter here because this is a move - the other socket object is
     // being invalidated and so the total usages doesn't change
 
@@ -246,8 +262,10 @@ void TCPSocket::create() {
         throw SocketException("Failed to set socket option reuse address");
     }
 
+    __useCount.reset();
+
     // Initialise the usage counter to 1 - we now have a live socket object with a single reference
-    __useCount = new int(1);
+    __useCount = std::make_shared<int>(1);
 }
 
 void TCPSocket::bind(unsigned short port, const std::string &host) const {
@@ -356,7 +374,7 @@ TCPSocket TCPSocket::accept() const {
     acceptedSocket.sock = clientSocket;
     // This is a new socket, but is not created internally, so we explicitly initialise the usage counter
     // to 1
-    acceptedSocket.__useCount = new int(1);
+    acceptedSocket.__useCount = std::make_shared<int>(1);
 
     // Return the accepted socket by moving it
     return std::move(acceptedSocket);
@@ -369,7 +387,7 @@ void TCPSocket::send(MessageBase &&message) const {
     ::send(sock, (const char *) networkMessage.begin(), networkMessage.bufferSize(), 0);
 }
 
-NetworkMessage TCPSocket::receive() const {
+NetworkMessage TCPSocket::receive() {
     // Create an empty message object
     NetworkMessageDecoder decoder;
 
@@ -378,23 +396,29 @@ NetworkMessage TCPSocket::receive() const {
     std::array<byte, NetworkMessage::HeaderSize> header{};
 
     // Receive the header data
-    size_t testSize = ::recv(sock, (char *) header.data(), header.size(), 0);
+    if (::recv(sock, (char *) header.data(), header.size(), 0) == -1) {
+        if (WSAGetLastError() == WSAECONNRESET) {
+            decoder.invalidate();
+            close();
+            return decoder.create();
+        }
+    }
     // Pass the header data to the message so it can decode it
     decoder.decodeHeader(header);
 
     // Declare an array for the message chunks
     std::array<byte, NetworkMessage::BufferChunkSize> chunk{};
 
-    bool test = false;
-
-    if (test) {
-        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
-    }
-
     // For as long as the message object is expecting data
     while (decoder.expectingData()) {
         // Receive the next fixed size chunk
-        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
+        if (::recv(sock, (char *) chunk.data(), chunk.size(), 0) == -1) {
+            if (WSAGetLastError() == WSAECONNRESET) {
+                decoder.invalidate();
+                close();
+                return decoder.create();
+            }
+        }
         // Pass the chunk to the message so it can decode it
         decoder.decodeChunk(chunk);
     }
@@ -403,66 +427,12 @@ NetworkMessage TCPSocket::receive() const {
     return decoder.create();
 }
 
-//RSAMessage TCPSocket::receiveRSA() const {
-//    // Create an empty message object
-//    RSAMessage message;
-//
-//    // Declare a fixed size array for the header of the message. The header is sent
-//    // initially, followed by the body
-//    std::array<byte, RSAMessage::_HeaderSize> header{};
-//
-//    // Receive the header data
-//    ::recv(sock, (char *) header.data(), header.size(), 0);
-//    // Pass the header data to the message so it can decode it
-//    message.readHeader(header);
-//
-//    // Declare an array for the message chunks
-//    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
-//
-//    // For as long as the message object is expecting data
-//    while (message.expectingData()) {
-//        // Receive the next fixed size chunk
-//        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
-//        // Pass the chunk to the message so it can decode it
-//        message.readBuffer(chunk);
-//    }
-//
-//    // Return the message by transferring ownership
-//    return std::move(message);
-//}
-//
-//AESMessage TCPSocket::receiveAES() const {
-//    // Create an empty message object
-//    AESMessage message;
-//
-//    // Declare a fixed size array for the header of the message. The header is sent
-//    // initially, followed by the body
-//    std::array<byte, AESMessage::_HeaderSize> header{};
-//
-//    // Receive the header data
-//    ::recv(sock, (char *) header.data(), header.size(), 0);
-//    // Pass the header data to the message so it can decode it
-//    message.readHeader(header);
-//
-//    // Declare an array for the message chunks
-//    std::array<byte, BUFFER_CHUNK_SIZE> chunk{};
-//
-//    // For as long as the message object is expecting data
-//    while (message.expectingData()) {
-//        // Receive the next fixed size chunk
-//        ::recv(sock, (char *) chunk.data(), chunk.size(), 0);
-//        // Pass the chunk to the message so it can decode it
-//        message.readBuffer(chunk);
-//    }
-//
-//    // Return the message by transferring ownership
-//    return std::move(message);
-//}
-
 void TCPSocket::select(TCPSocketSet &socketSet) {
+    // Build the file descriptor sets
+    socketSet.buildFDSets();
     // Call the select interface with the socket sets defined in the passed in object
     if (::select(0, &socketSet.readFds, &socketSet.writeFds, &socketSet.exceptFds, nullptr) == SOCKET_ERROR) {
-        throw SocketException("Failed to select socket file descriptors");
+        throw SocketException("Failed to select ready socket file descriptors");
     }
 }
 
@@ -474,9 +444,8 @@ void TCPSocket::invalidate() {
 }
 
 void TCPSocket::destroy() {
-    // Delete the usage counter - we are destroying this socket and so there should be no
-    // usages
-    delete __useCount;
+    // Reset the use counter pointer
+    __useCount.reset();
     // If the socket was actually set
     if (sock != INVALID_SOCK) {
         // Shut it down and close it
@@ -493,7 +462,7 @@ SocketException::SocketException(const std::string &message)
 
 }
 
-std::string SocketException::formatMessage(const std::string &userMessage) const {
+std::string SocketException::formatMessage(const std::string &userMessage) {
     // Declare buffers for the error message and the return display buffer
     LPVOID messageBuffer;
     LPVOID displayBuffer;
