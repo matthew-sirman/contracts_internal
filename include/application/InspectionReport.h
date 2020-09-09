@@ -1,0 +1,14 @@
+//
+// Created by Matthew.Sirman on 09/09/2020.
+//
+
+#ifndef CONTRACTS_SITE_CLIENT_INSPECTIONREPORT_H
+#define CONTRACTS_SITE_CLIENT_INSPECTIONREPORT_H
+
+
+class InspectionReport {
+
+};
+
+
+#endif //CONTRACTS_SITE_CLIENT_INSPECTIONREPORT_H

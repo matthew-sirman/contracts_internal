@@ -14,7 +14,7 @@ WSADATA TCPSocket::__wsaData;
 
 size_t std::hash<networking::TCPSocket>::operator()(const TCPSocket &sock) const {
     // Return the has of the socket file descriptor as this identifies a unique socket
-    return std::hash<unsigned long long>()(sock.sock);
+    return std::hash<unsigned long long>()(*sock.sock);
 }
 
 TCPSocketSet::TCPSocketSet() {
@@ -57,7 +57,7 @@ std::unordered_set<TCPSocket> TCPSocketSet::reads() const {
     // Loop over each socket
     for (const TCPSocket &sock : sockets) {
         // If the socket is set (by select) add it to the set sockets
-        if (FD_ISSET(sock.sock, &readFds)) {
+        if (FD_ISSET(*sock.sock, &readFds)) {
             setSockets.insert(sock);
         }
     }
@@ -73,7 +73,7 @@ std::unordered_set<TCPSocket> TCPSocketSet::writes() const {
     // Loop over each socket
     for (const TCPSocket &sock : sockets) {
         // If the socket is set (by select) add it to the set sockets
-        if (FD_ISSET(sock.sock, &writeFds)) {
+        if (FD_ISSET(*sock.sock, &writeFds)) {
             setSockets.insert(sock);
         }
     }
@@ -89,7 +89,7 @@ std::unordered_set<TCPSocket> TCPSocketSet::excepts() const {
     // Loop over each socket
     for (const TCPSocket &sock : sockets) {
         // If the socket is set (by select) add it to the set sockets
-        if (FD_ISSET(sock.sock, &exceptFds)) {
+        if (FD_ISSET(*sock.sock, &exceptFds)) {
             setSockets.insert(sock);
         }
     }
@@ -102,7 +102,7 @@ bool TCPSocketSet::acceptReady() const {
     if (!acceptSocket.has_value()) {
         return false;
     }
-    return FD_ISSET(acceptSocket->sock, &readFds);
+    return FD_ISSET(*acceptSocket->sock, &readFds);
 }
 
 void TCPSocketSet::buildFDSets() {
@@ -111,18 +111,20 @@ void TCPSocketSet::buildFDSets() {
     FD_ZERO(&exceptFds);
 
     if (acceptSocket.has_value()) {
-        FD_SET(acceptSocket->sock, &readFds);
+        FD_SET(*acceptSocket->sock, &readFds);
     }
 
     for (const TCPSocket &sock : sockets) {
-        FD_SET(sock.sock, &readFds);
-        FD_SET(sock.sock, &writeFds);
-        FD_SET(sock.sock, &exceptFds);
+        if (sock) {
+            FD_SET(*sock.sock, &readFds);
+            FD_SET(*sock.sock, &writeFds);
+            FD_SET(*sock.sock, &exceptFds);
+        }
     }
 }
 
 TCPSocket::TCPSocket()
-        : sock(INVALID_SOCK), __useCount(nullptr) {
+        : sock(std::make_shared<SOCKET>(INVALID_SOCK)), __useCount(nullptr) {
     // If the global usage counter is 0, this indicates that WSA is not currently initialise,
     // so start it up
     if (__globalSockUsage == 0) {
@@ -150,9 +152,9 @@ TCPSocket::TCPSocket(const TCPSocket &socket) noexcept {
 }
 
 TCPSocket::TCPSocket(TCPSocket &&socket) noexcept {
-    // Copy the socket file descriptor
-    this->sock = socket.sock;
-    // Copy the pointer to the usage counter (we do not have to worry about the usage counter already having
+    // Move the socket file descriptor
+    this->sock = std::move(socket.sock);
+    // Move the pointer to the usage counter (we do not have to worry about the usage counter already having
     // a value as this is the constructor)
     this->__useCount = std::move(socket.__useCount);
     // Note: we do not increment the usage counter here because this is a move - the original socket object is
@@ -167,7 +169,7 @@ TCPSocket::TCPSocket(TCPSocket &&socket) noexcept {
 
 TCPSocket::~TCPSocket() {
     // If the socket isn't invalid (i.e. has been created, or copied or moved from another socket)
-    if (sock != INVALID_SOCK) {
+    if (sock) {
         // We decrement the use count as this object is losing its reference. If the use count is now 0,
         // we destroy the internal socket as there are no longer any references to it
         if (--(*__useCount) == 0) {
@@ -190,7 +192,7 @@ TCPSocket &TCPSocket::operator=(const TCPSocket &other) noexcept {
 
     // If this socket is not invalid, we need to clean up the reference we have to it (as we are losing it by
     // changing to another socket)
-    if (this->sock != INVALID_SOCK) {
+    if (*this->sock != INVALID_SOCK) {
         // Decrement the original usage counter. If the counter drops to 0, we have just lost the last reference
         // so destroy the socket.
         if (--(*this->__useCount) == 0) {
@@ -219,7 +221,7 @@ TCPSocket &TCPSocket::operator=(TCPSocket &&other) noexcept {
 
     // If this socket is not invalid, we need to clean up the reference we have to it (as we are losing it by
     // changing to another socket)
-    if (this->sock != INVALID_SOCK) {
+    if (*this->sock != INVALID_SOCK) {
         // Decrement the original usage counter. If the counter drops to 0, we have just lost the last reference
         // so destroy the socket.
         if (--(*this->__useCount) == 0) {
@@ -227,9 +229,9 @@ TCPSocket &TCPSocket::operator=(TCPSocket &&other) noexcept {
         }
     }
 
-    // Copy across the file descriptor
-    this->sock = other.sock;
-    // Copy across the usage counter
+    // Move across the file descriptor
+    this->sock = std::move(other.sock);
+    // Move across the usage counter
     this->__useCount = std::move(other.__useCount);
     // Note: we do not increment the usage counter here because this is a move - the other socket object is
     // being invalidated and so the total usages doesn't change
@@ -240,25 +242,25 @@ TCPSocket &TCPSocket::operator=(TCPSocket &&other) noexcept {
     return *this;
 }
 
-constexpr TCPSocket::operator bool() const noexcept {
+TCPSocket::operator bool() const noexcept {
     // Returns true if this socket is valid
-    return sock != INVALID_SOCK;
+    return *sock != INVALID_SOCK;
 }
 
 bool TCPSocket::operator==(const TCPSocket &other) const {
     // Returns true if the internal socket file descriptors are equal
-    return this->sock == other.sock;
+    return *this->sock == *other.sock;
 }
 
 void TCPSocket::create() {
     // Create the socket object. If there is an error, throw an exception
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == INVALID_SOCK) {
+    if (*(sock = std::make_shared<SOCKET>(socket(AF_INET, SOCK_STREAM, 0))) == INVALID_SOCK) {
         throw SocketException("Failed to create socket");
     }
 
     BOOL reuseAddr = TRUE;
     // Set the socket to reuse the address if necessary
-    if ((setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *) &reuseAddr, sizeof(BOOL))) != 0) {
+    if ((setsockopt(*sock, SOL_SOCKET, SO_REUSEADDR, (char *) &reuseAddr, sizeof(BOOL))) != 0) {
         throw SocketException("Failed to set socket option reuse address");
     }
 
@@ -288,7 +290,7 @@ void TCPSocket::bind(unsigned short port, const std::string &host) const {
     }
 
     // Call the socket interface's bind function to bind this socket object to the constructed address
-    if (::bind(sock, (SOCKADDR *) &address, sizeof(address)) == SOCKET_ERROR) {
+    if (::bind(*sock, (SOCKADDR *) &address, sizeof(address)) == SOCKET_ERROR) {
         throw SocketException("Failed to bind socket");
     }
 }
@@ -327,7 +329,7 @@ void TCPSocket::connect(const std::string &host, unsigned short port) const {
 
     // Attempt to connect to whichever host address we ended up with by this point. We know the address is
     // valid, but not necessarily that we will be able to connect
-    if (::connect(sock, (SOCKADDR *) &serverAddress, sizeof(sockaddr_in)) == SOCKET_ERROR) {
+    if (::connect(*sock, (SOCKADDR *) &serverAddress, sizeof(sockaddr_in)) == SOCKET_ERROR) {
         throw SocketException("Failed to connect to server");
     }
 }
@@ -337,7 +339,7 @@ void TCPSocket::setNonBlocking() {
     unsigned long nonBlocking = 1;
 
     // Set the socket object's non blocking property to true
-    if (ioctlsocket(sock, FIONBIO, &nonBlocking) == SOCKET_ERROR) {
+    if (ioctlsocket(*sock, FIONBIO, &nonBlocking) == SOCKET_ERROR) {
         throw SocketException("Failed to set socket to non-blocking mode");
     }
 }
@@ -349,7 +351,7 @@ void TCPSocket::close() {
 
 void TCPSocket::listen() const {
     // Call the listen interface on this socket
-    if (::listen(sock, BACKLOG_QUEUE_SIZE) == SOCKET_ERROR) {
+    if (::listen(*sock, BACKLOG_QUEUE_SIZE) == SOCKET_ERROR) {
         throw SocketException("Failed to set socket to listen");
     }
 }
@@ -366,12 +368,12 @@ TCPSocket TCPSocket::accept() const {
     SOCKET clientSocket = INVALID_SOCK;
 
     // Accept the client socket
-    if ((clientSocket = ::accept(sock, (SOCKADDR *) &clientAddress, &clientAddressSize)) == INVALID_SOCK) {
+    if ((clientSocket = ::accept(*sock, (SOCKADDR *) &clientAddress, &clientAddressSize)) == INVALID_SOCK) {
         throw SocketException("Failed to accept socket");
     }
 
     // Set the socket object's file descriptor to the accepted socket
-    acceptedSocket.sock = clientSocket;
+    acceptedSocket.sock = std::make_shared<SOCKET>(clientSocket);
     // This is a new socket, but is not created internally, so we explicitly initialise the usage counter
     // to 1
     acceptedSocket.__useCount = std::make_shared<int>(1);
@@ -384,7 +386,7 @@ void TCPSocket::send(MessageBase &&message) const {
     // Create the network message to send
     NetworkMessage networkMessage = message.message();
     // Send the raw message data from the message object
-    ::send(sock, (const char *) networkMessage.begin(), networkMessage.bufferSize(), 0);
+    ::send(*sock, (const char *) networkMessage.begin(), networkMessage.bufferSize(), 0);
 }
 
 NetworkMessage TCPSocket::receive() {
@@ -396,13 +398,19 @@ NetworkMessage TCPSocket::receive() {
     std::array<byte, NetworkMessage::HeaderSize> header{};
 
     // Receive the header data
-    if (::recv(sock, (char *) header.data(), header.size(), 0) == -1) {
+    size_t receiveSize;
+    if ((receiveSize = ::recv(*sock, (char *) header.data(), header.size(), 0)) == -1) {
         if (WSAGetLastError() == WSAECONNRESET) {
             decoder.invalidate();
             close();
             return decoder.create();
         }
+    } else if (receiveSize == 0) {
+        decoder.invalidate();
+        close();
+        return decoder.create();
     }
+
     // Pass the header data to the message so it can decode it
     decoder.decodeHeader(header);
 
@@ -412,7 +420,7 @@ NetworkMessage TCPSocket::receive() {
     // For as long as the message object is expecting data
     while (decoder.expectingData()) {
         // Receive the next fixed size chunk
-        if (::recv(sock, (char *) chunk.data(), chunk.size(), 0) == -1) {
+        if (::recv(*sock, (char *) chunk.data(), chunk.size(), 0) == -1) {
             if (WSAGetLastError() == WSAECONNRESET) {
                 decoder.invalidate();
                 close();
@@ -438,7 +446,7 @@ void TCPSocket::select(TCPSocketSet &socketSet) {
 
 void TCPSocket::invalidate() {
     // Set the socket to be the invalid socket
-    sock = INVALID_SOCK;
+    sock = nullptr;
     // Set the usage counter to be a null pointer
     __useCount = nullptr;
 }
@@ -447,10 +455,11 @@ void TCPSocket::destroy() {
     // Reset the use counter pointer
     __useCount.reset();
     // If the socket was actually set
-    if (sock != INVALID_SOCK) {
+    if (*sock != INVALID_SOCK) {
         // Shut it down and close it
-        shutdown(sock, SD_BOTH);
-        closesocket(sock);
+        shutdown(*sock, SD_BOTH);
+        closesocket(*sock);
+        *sock = INVALID_SOCK;
         // Invalidate the socket object (in case the object still exists, to notify that the actual socket
         // is closed)
         invalidate();

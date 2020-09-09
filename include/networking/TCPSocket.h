@@ -69,7 +69,7 @@ namespace networking {
         TCPSocket &operator=(TCPSocket &&other) noexcept;
 
         // Bool cast operator
-        constexpr explicit operator bool() const noexcept;
+        explicit operator bool() const noexcept;
 
         // Equality operator between two sockets
         bool operator==(const TCPSocket &other) const;
@@ -118,7 +118,7 @@ namespace networking {
         void destroy();
 
         // Internal file descriptor for the socket
-        SOCKET sock;
+        std::shared_ptr<SOCKET> sock;
 
         // Shared usage counter for copied sockets. The internal socket will be destroyed when it has no
         // remaining references
