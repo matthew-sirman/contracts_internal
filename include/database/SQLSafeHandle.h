@@ -2,8 +2,8 @@
 // Created by Matthew.Sirman on 24/08/2020.
 //
 
-#ifndef CONTRACTS_SITE_CLIENT_SQLSAFEHANDLE_H
-#define CONTRACTS_SITE_CLIENT_SQLSAFEHANDLE_H
+#ifndef CONTRACTS_INTERNAL_SQLSAFEHANDLE_H
+#define CONTRACTS_INTERNAL_SQLSAFEHANDLE_H
 
 #include <Windows.h>
 #include <sqlext.h>
@@ -18,16 +18,16 @@ namespace sql {
     // Represents a tag to disengage safe handles
     struct null_handle_t {
         // Used to construct a null handle
-        enum class __Construct {
-            __Token
+        enum class _Construct {
+            _Token
         };
 
         // Declared as constexpr to make the type a literal
-        explicit constexpr null_handle_t(__Construct) { }
+        explicit constexpr null_handle_t(_Construct) { }
     };
 
     // Tag to disengage safe handles
-    inline constexpr null_handle_t null_handle { null_handle_t::__Construct::__Token };
+    inline constexpr null_handle_t null_handle { null_handle_t::_Construct::_Token };
 
     enum HandleType {
         ENVIRONMENT_HANDLE = SQL_HANDLE_ENV,
@@ -45,7 +45,7 @@ namespace sql {
         SQLSafeHandle();
 
         // Constructor specifying the internal handle
-        SQLSafeHandle(SQLHANDLE handle);
+        explicit SQLSafeHandle(SQLHANDLE handle);
 
         // Deleted copy constructor
         SQLSafeHandle(const SQLSafeHandle<handleType> &) = delete;
@@ -153,4 +153,4 @@ namespace sql {
 
 }
 
-#endif //CONTRACTS_SITE_CLIENT_SQLSAFEHANDLE_H
+#endif //CONTRACTS_INTERNAL_SQLSAFEHANDLE_H

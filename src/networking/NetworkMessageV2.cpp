@@ -253,7 +253,7 @@ RSAMessage::RSAMessage(RSAMessage &&other) noexcept
 }
 
 RSAMessage::RSAMessage(const NetworkMessage &message, RSAKeyPair keys) {
-    if (message.invalid()) {
+    if (message.invalid() || message.messageSize() != (sizeof(unsigned) + sizeof(uint2048))) {
         __invalid = true;
         buffer = byte_buffer((size_t) 0);
         return;

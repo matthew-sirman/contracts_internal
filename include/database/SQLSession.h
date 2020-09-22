@@ -2,8 +2,8 @@
 // Created by Matthew.Sirman on 20/08/2020.
 //
 
-#ifndef CONTRACTS_SITE_CLIENT_SAGEDATABASEMANAGER_H
-#define CONTRACTS_SITE_CLIENT_SAGEDATABASEMANAGER_H
+#ifndef CONTRACTS_INTERNAL_SAGEDATABASEMANAGER_H
+#define CONTRACTS_INTERNAL_SAGEDATABASEMANAGER_H
 
 #include <sstream>
 
@@ -35,6 +35,9 @@ namespace sql {
         // Gets a queryable table object for the C++ style query builder interface
         sql::Table table(const std::string &tableName);
 
+        // Gets a queryable table object with an alias for the C++ style query builder interface
+        sql::Table table(const std::string &tableName, const std::string &tableAlias);
+
         // Terminate the connection
         void closeConnection();
 
@@ -57,4 +60,4 @@ namespace sql {
 
 }
 
-#endif //CONTRACTS_SITE_CLIENT_SAGEDATABASEMANAGER_H
+#endif //CONTRACTS_INTERNAL_SAGEDATABASEMANAGER_H

@@ -68,98 +68,148 @@ void QueryResult::fetchNextRow() {
 // Finally, the method returns this value.
 
 template<>
-char QueryResult::get<char>(size_t index) const {
+Value<char> QueryResult::get<char>(size_t index) const {
     SQLSCHAR result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLSCHAR), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLSCHAR), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-unsigned char QueryResult::get<unsigned char>(size_t index) const {
+Value<unsigned char> QueryResult::get<unsigned char>(size_t index) const {
     SQLCHAR result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-short QueryResult::get<short>(size_t index) const {
+Value<short> QueryResult::get<short>(size_t index) const {
     SQLSMALLINT result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLSMALLINT), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLSMALLINT), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-unsigned short QueryResult::get<unsigned short>(size_t index) const {
+Value<unsigned short> QueryResult::get<unsigned short>(size_t index) const {
     SQLUSMALLINT result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLUSMALLINT), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_SMALLINT, &result, (SQLLEN) sizeof(SQLUSMALLINT), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-int QueryResult::get<int>(size_t index) const {
+Value<int> QueryResult::get<int>(size_t index) const {
     SQLINTEGER result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-unsigned int QueryResult::get<unsigned int>(size_t index) const {
+Value<unsigned int> QueryResult::get<unsigned int>(size_t index) const {
     SQLUINTEGER result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUINTEGER), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUINTEGER), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-long long QueryResult::get<long long>(size_t index) const {
+Value<long long> QueryResult::get<long long>(size_t index) const {
     SQLBIGINT result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLINTEGER), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-unsigned long long QueryResult::get<unsigned long long>(size_t index) const {
+Value<unsigned long long> QueryResult::get<unsigned long long>(size_t index) const {
     SQLUBIGINT result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUBIGINT), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_INTEGER, &result, (SQLLEN) sizeof(SQLUBIGINT), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-float QueryResult::get<float>(size_t index) const {
+Value<float> QueryResult::get<float>(size_t index) const {
     SQLREAL result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_REAL, &result, (SQLLEN) sizeof(SQLREAL), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_REAL, &result, (SQLLEN) sizeof(SQLREAL), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-double QueryResult::get<double>(size_t index) const {
+Value<double> QueryResult::get<double>(size_t index) const {
     SQLDOUBLE result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_DOUBLE, &result, (SQLLEN) sizeof(SQLDOUBLE), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_DOUBLE, &result, (SQLLEN) sizeof(SQLDOUBLE), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
 }
 
 template<>
-std::string QueryResult::get<std::string>(size_t index) const {
-    // This is the only differing get method.
+Value<std::string> QueryResult::get<std::string>(size_t index) const {
+    // This is a differing get method.
 
     // First we declare an array for the result. This is declared in static storage
     static SQLCHAR result[MAX_QUERY_STRING_LENGTH];
@@ -171,18 +221,54 @@ std::string QueryResult::get<std::string>(size_t index) const {
     // to the resultLength value
     SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, result, (SQLLEN) sizeof(result), &resultLength);
 
+    if (resultLength == SQL_NULL_DATA) {
+        return null_value;
+    }
+
     // Finally, we construct a string from the result buffer and length. This implicitly copies from the buffer,
     // so it does not matter that the buffer itself is in static space
     return std::string((const char *) result, resultLength);
 }
 
 template<>
-bool QueryResult::get<bool>(size_t index) const {
+Value<bool> QueryResult::get<bool>(size_t index) const {
     SQLCHAR result;
+    SQLLEN length;
 
-    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), nullptr);
+    SQLGetData(sqlStatementHandle.get(), index + 1, SQL_CHAR, &result, (SQLLEN) sizeof(SQLCHAR), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
 
     return result;
+}
+
+template<>
+Value<Date> QueryResult::get<Date>(size_t index) const {
+    SQL_DATE_STRUCT result;
+    SQLLEN length;
+
+    SQLGetData(sqlStatementHandle.get(), index + 1, 91, &result, (SQLLEN) sizeof(SQL_DATE_STRUCT), &length);
+
+    if (length == SQL_NULL_DATA) {
+        return null_value;
+    }
+
+    return Date(result.year, result.month, result.day);
+}
+
+template<>
+Value<Price> QueryResult::get<Price>(size_t index) const {
+    // Get the value as a float
+    Value<float> value = get<float>(index);
+
+    if (!value.hasValue()) {
+        return null_value;
+    }
+
+    // Return a price of this value
+    return Price(value.value());
 }
 
 size_t QueryResult::rowCount() const {

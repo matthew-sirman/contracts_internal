@@ -74,7 +74,12 @@ sql::QueryResult SQLSession::executeQuery(const std::string &sql) {
 sql::Table SQLSession::table(const std::string &tableName) {
     std::unique_ptr<sql::internal::QueryBuilder> builder = std::make_unique<sql::internal::QueryBuilder>(this);
     // Return a table object based on the passed in table name
-    return Table(tableName, std::move(builder));
+    return Table(tableName, std::nullopt, std::move(builder));
+}
+
+sql::Table SQLSession::table(const std::string &tableName, const std::string &tableAlias) {
+    std::unique_ptr<sql::internal::QueryBuilder> builder = std::make_unique<sql::internal::QueryBuilder>(this);
+    return Table(tableName, tableAlias, std::move(builder));
 }
 
 void SQLSession::closeConnection() {

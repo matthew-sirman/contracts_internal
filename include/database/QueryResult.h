@@ -2,8 +2,8 @@
 // Created by Matthew.Sirman on 20/08/2020.
 //
 
-#ifndef CONTRACTS_SITE_CLIENT_QUERYRESULT_H
-#define CONTRACTS_SITE_CLIENT_QUERYRESULT_H
+#ifndef CONTRACTS_INTERNAL_QUERYRESULT_H
+#define CONTRACTS_INTERNAL_QUERYRESULT_H
 
 //#include <Windows.h>
 //#include <sqlext.h>
@@ -14,6 +14,9 @@
 #include <memory>
 
 #include "SQLSafeHandle.h"
+#include "Value.h"
+#include "Date.h"
+#include "Price.h"
 
 #define MAX_QUERY_STRING_LENGTH 1024
 
@@ -80,7 +83,7 @@ namespace sql {
         // Wrapper for the query result's internal get method to get the value for the current row at the
         // index of this column
         template<typename T>
-        inline T getItem() const {
+        inline Value<T> getItem() const {
             return resultObject.get<T>(columnIndex);
         }
 
@@ -104,12 +107,12 @@ namespace sql {
         inline Column(ColumnSetItemProxy item) : item(item) {}
 
         // Cast operator to the column's type
-        inline operator T() const {
+        inline operator Value<T>() const {
             return get();
         }
 
         // Explicit get method to return the data in this column at the current row
-        inline T get() const {
+        inline Value<T> get() const {
             return item.getItem<T>();
         };
 
@@ -146,12 +149,12 @@ namespace sql {
 
         // Template cast method. Calls the private get method in the QueryResult object assigned
         template<typename T>
-        inline operator T() const {
+        inline operator Value<T>() const {
             return resultObject.get<T>(index);
         }
 
         template<typename T>
-        inline T get() const {
+        inline Value<T> get() const {
             return resultObject.get<T>(index);
         }
 
@@ -236,7 +239,7 @@ namespace sql {
 
     protected:
         // Protected constructor. This is hidden so only the session can create a QueryResult
-        QueryResult(SQLSafeHandle<STATEMENT_HANDLE> &&sqlStatementHandle);
+        explicit QueryResult(SQLSafeHandle<STATEMENT_HANDLE> &&sqlStatementHandle);
 
     private:
         // A handle for the statement which contains the internal row results
@@ -255,7 +258,7 @@ namespace sql {
 
         // Get method to get the data of the provided type at the given index
         template<typename T>
-        T get(size_t index) const;
+        Value<T> get(size_t index) const;
     };
 
     template<typename... Values>
@@ -282,4 +285,4 @@ namespace sql {
 
 }
 
-#endif //CONTRACTS_SITE_CLIENT_QUERYRESULT_H
+#endif //CONTRACTS_INTERNAL_QUERYRESULT_H

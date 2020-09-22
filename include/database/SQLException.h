@@ -2,8 +2,8 @@
 // Created by Matthew.Sirman on 21/08/2020.
 //
 
-#ifndef CONTRACTS_SITE_CLIENT_SQLEXCEPTION_H
-#define CONTRACTS_SITE_CLIENT_SQLEXCEPTION_H
+#ifndef CONTRACTS_INTERNAL_SQLEXCEPTION_H
+#define CONTRACTS_INTERNAL_SQLEXCEPTION_H
 
 #include <exception>
 #include <string>
@@ -16,7 +16,7 @@ namespace sql {
     class SQLException : public std::exception {
     public:
         // Constructor with an arbitrary message
-        SQLException(const std::string &message);
+        explicit SQLException(const std::string &message);
 
         // Constructor with a specific state and error message from the SQL internal error scheme
         SQLException(const std::string &sqlState, const std::string &sqlError);
@@ -42,4 +42,4 @@ namespace sql {
 
 }
 
-#endif //CONTRACTS_SITE_CLIENT_SQLEXCEPTION_H
+#endif //CONTRACTS_INTERNAL_SQLEXCEPTION_H

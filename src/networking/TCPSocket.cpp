@@ -192,11 +192,13 @@ TCPSocket &TCPSocket::operator=(const TCPSocket &other) noexcept {
 
     // If this socket is not invalid, we need to clean up the reference we have to it (as we are losing it by
     // changing to another socket)
-    if (*this->sock != INVALID_SOCK) {
-        // Decrement the original usage counter. If the counter drops to 0, we have just lost the last reference
-        // so destroy the socket.
-        if (--(*this->__useCount) == 0) {
-            destroy();
+    if (this->sock) {
+        if (*this->sock != INVALID_SOCK) {
+            // Decrement the original usage counter. If the counter drops to 0, we have just lost the last reference
+            // so destroy the socket.
+            if (--(*this->__useCount) == 0) {
+                destroy();
+            }
         }
     }
 
@@ -243,6 +245,9 @@ TCPSocket &TCPSocket::operator=(TCPSocket &&other) noexcept {
 }
 
 TCPSocket::operator bool() const noexcept {
+    if (!sock) {
+        return false;
+    }
     // Returns true if this socket is valid
     return *sock != INVALID_SOCK;
 }
@@ -455,14 +460,16 @@ void TCPSocket::destroy() {
     // Reset the use counter pointer
     __useCount.reset();
     // If the socket was actually set
-    if (*sock != INVALID_SOCK) {
-        // Shut it down and close it
-        shutdown(*sock, SD_BOTH);
-        closesocket(*sock);
-        *sock = INVALID_SOCK;
-        // Invalidate the socket object (in case the object still exists, to notify that the actual socket
-        // is closed)
-        invalidate();
+    if (sock) {
+        if (*sock != INVALID_SOCK) {
+            // Shut it down and close it
+            shutdown(*sock, SD_BOTH);
+            closesocket(*sock);
+            *sock = INVALID_SOCK;
+            // Invalidate the socket object (in case the object still exists, to notify that the actual socket
+            // is closed)
+            invalidate();
+        }
     }
 }
 
